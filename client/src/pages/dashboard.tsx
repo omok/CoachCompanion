@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { TeamRoster } from "@/components/team-roster";
 import { AttendanceTracker } from "@/components/attendance-tracker";
-import { SessionNotes } from "@/components/session-notes";
+import { PracticeNotes } from "@/components/practice-notes";
 import { useQuery } from "@tanstack/react-query";
 import { Team } from "@shared/schema";
 import {
@@ -115,7 +115,7 @@ export default function Dashboard() {
             <h1 className="text-2xl font-bold mb-6">{selectedTeam?.name}</h1>
             {activeTab === "roster" && <TeamRoster teamId={selectedTeamId} />}
             {activeTab === "attendance" && <AttendanceTracker teamId={selectedTeamId} />}
-            {activeTab === "notes" && <SessionNotes teamId={selectedTeamId} />}
+            {activeTab === "notes" && <PracticeNotes teamId={selectedTeamId} />}
           </>
         )}
       </div>

@@ -33,29 +33,29 @@ export const attendance = pgTable("attendance", {
   present: boolean("present").notNull(),
 });
 
-export const sessionNotes = pgTable("session_notes", {
+export const practiceNotes = pgTable("practice_notes", {
   id: serial("id").primaryKey(),
   teamId: integer("team_id").notNull(),
   coachId: integer("coach_id").notNull(),
-  date: timestamp("date").notNull(),
+  practiceDate: timestamp("practice_date").notNull(),
   notes: text("notes").notNull(),
-  tags: text("tags").array(),
+  playerIds: integer("player_ids").array(), // Store player IDs instead of tags
 });
 
 export const insertUserSchema = createInsertSchema(users);
 export const insertTeamSchema = createInsertSchema(teams);
 export const insertPlayerSchema = createInsertSchema(players);
 export const insertAttendanceSchema = createInsertSchema(attendance);
-export const insertSessionNoteSchema = createInsertSchema(sessionNotes);
+export const insertPracticeNoteSchema = createInsertSchema(practiceNotes);
 
 export type User = typeof users.$inferSelect;
 export type Team = typeof teams.$inferSelect;
 export type Player = typeof players.$inferSelect;
 export type Attendance = typeof attendance.$inferSelect;
-export type SessionNote = typeof sessionNotes.$inferSelect;
+export type PracticeNote = typeof practiceNotes.$inferSelect;
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type InsertTeam = z.infer<typeof insertTeamSchema>;
 export type InsertPlayer = z.infer<typeof insertPlayerSchema>;
 export type InsertAttendance = z.infer<typeof insertAttendanceSchema>;
-export type InsertSessionNote = z.infer<typeof insertSessionNoteSchema>;
+export type InsertPracticeNote = z.infer<typeof insertPracticeNoteSchema>;

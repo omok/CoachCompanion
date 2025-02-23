@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
-import { insertTeamSchema, insertPlayerSchema, insertAttendanceSchema, insertSessionNoteSchema } from "@shared/schema";
+import { insertTeamSchema, insertPlayerSchema, insertAttendanceSchema, insertPracticeNoteSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
@@ -86,8 +86,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(attendance);
   });
 
-  // Session Notes
-  app.post("/api/teams/:teamId/notes", async (req, res) => {
+  // Practice Notes
+  app.post("/api/teams/:teamId/practice-notes", async (req, res) => {
     if (!req.isAuthenticated() || req.user.role !== "coach") {
       return res.sendStatus(401);
     }
@@ -95,23 +95,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const team = await storage.getTeam(teamId);
     if (!team || team.coachId !== req.user.id) return res.sendStatus(403);
 
-    const parsed = insertSessionNoteSchema.parse({
-      ...req.body,
-      teamId,
-      coachId: req.user.id,
-    });
-    const note = await storage.createSessionNote(parsed);
-    res.status(201).json(note);
+    try {
+      const parsed = insertPracticeNoteSchema.parse({
+        ...req.body,
+        teamId,
+        coachId: req.user.id,
+        practiceDate: new Date(req.body.practiceDate)
+      });
+      const note = await storage.createPracticeNote(parsed);
+      res.status(201).json(note);
+    } catch (error) {
+      console.error('Error saving practice note:', error);
+      res.status(400).json({ error: 'Invalid practice note data' });
+    }
   });
 
-  app.get("/api/teams/:teamId/notes", async (req, res) => {
+  app.get("/api/teams/:teamId/practice-notes", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const teamId = parseInt(req.params.teamId);
     const team = await storage.getTeam(teamId);
     if (!team || (req.user.role === "coach" && team.coachId !== req.user.id)) {
       return res.sendStatus(403);
     }
-    const notes = await storage.getSessionNotesByTeamId(teamId);
+    const notes = await storage.getPracticeNotesByTeamId(teamId);
     res.json(notes);
   });
 

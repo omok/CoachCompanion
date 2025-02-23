@@ -1,6 +1,6 @@
 import {
-  User, Team, Player, Attendance, SessionNote,
-  InsertUser, InsertTeam, InsertPlayer, InsertAttendance, InsertSessionNote
+  User, Team, Player, Attendance, PracticeNote,
+  InsertUser, InsertTeam, InsertPlayer, InsertAttendance, InsertPracticeNote
 } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
@@ -12,24 +12,24 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-  
+
   // Team operations
   createTeam(team: InsertTeam): Promise<Team>;
   getTeamsByCoachId(coachId: number): Promise<Team[]>;
   getTeam(id: number): Promise<Team | undefined>;
-  
+
   // Player operations
   createPlayer(player: InsertPlayer): Promise<Player>;
   getPlayersByTeamId(teamId: number): Promise<Player[]>;
-  
+
   // Attendance operations
   createAttendance(attendance: InsertAttendance): Promise<Attendance>;
   getAttendanceByTeamId(teamId: number): Promise<Attendance[]>;
-  
-  // Session notes operations
-  createSessionNote(note: InsertSessionNote): Promise<SessionNote>;
-  getSessionNotesByTeamId(teamId: number): Promise<SessionNote[]>;
-  
+
+  // Practice notes operations
+  createPracticeNote(note: InsertPracticeNote): Promise<PracticeNote>;
+  getPracticeNotesByTeamId(teamId: number): Promise<PracticeNote[]>;
+
   sessionStore: session.SessionStore;
 }
 
@@ -38,7 +38,7 @@ export class MemStorage implements IStorage {
   private teams: Map<number, Team>;
   private players: Map<number, Player>;
   private attendance: Map<number, Attendance>;
-  private sessionNotes: Map<number, SessionNote>;
+  private practiceNotes: Map<number, PracticeNote>;
   sessionStore: session.SessionStore;
   private currentId: number;
 
@@ -47,7 +47,7 @@ export class MemStorage implements IStorage {
     this.teams = new Map();
     this.players = new Map();
     this.attendance = new Map();
-    this.sessionNotes = new Map();
+    this.practiceNotes = new Map();
     this.currentId = 1;
     this.sessionStore = new MemoryStore({
       checkPeriod: 86400000,
@@ -118,15 +118,19 @@ export class MemStorage implements IStorage {
     );
   }
 
-  async createSessionNote(note: InsertSessionNote): Promise<SessionNote> {
+  async createPracticeNote(note: InsertPracticeNote): Promise<PracticeNote> {
     const id = this.currentId++;
-    const newNote: SessionNote = { ...note, id };
-    this.sessionNotes.set(id, newNote);
+    const newNote: PracticeNote = {
+      ...note,
+      id,
+      practiceDate: new Date(note.practiceDate),
+    };
+    this.practiceNotes.set(id, newNote);
     return newNote;
   }
 
-  async getSessionNotesByTeamId(teamId: number): Promise<SessionNote[]> {
-    return Array.from(this.sessionNotes.values()).filter(
+  async getPracticeNotesByTeamId(teamId: number): Promise<PracticeNote[]> {
+    return Array.from(this.practiceNotes.values()).filter(
       (note) => note.teamId === teamId,
     );
   }

@@ -116,6 +116,16 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="notes">Practice Notes</Label>
+              <Textarea
+                id="notes"
+                {...form.register("notes")}
+                placeholder="Enter your practice notes here..."
+                className="min-h-[100px]"
+              />
+            </div>
+
+            <div className="space-y-2">
               <Label>Players Present</Label>
               <div className="flex gap-2 flex-wrap">
                 {presentPlayerIds.map((playerId) => (
@@ -125,16 +135,6 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
                   </Badge>
                 ))}
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="notes">Practice Notes</Label>
-              <Textarea
-                id="notes"
-                {...form.register("notes")}
-                placeholder="Enter your practice notes here..."
-                className="min-h-[100px]"
-              />
             </div>
 
             <Button type="submit" disabled={createNoteMutation.isPending}>

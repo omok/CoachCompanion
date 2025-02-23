@@ -78,13 +78,6 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
         description: "Your practice note has been saved successfully.",
       });
     },
-    onError: (error: Error) => {
-      toast({
-        title: "Failed to save practice note",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
   });
 
   const filteredNotes = notes?.filter((note) => {
@@ -107,130 +100,121 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
   };
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>New Practice Note</CardTitle>
-          <CardDescription>Record notes from today's practice session</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form
-            onSubmit={form.handleSubmit((data) => createNoteMutation.mutate(data))}
-            className="space-y-4"
-          >
-            <div className="space-y-2">
-              <Label>Practice Date</Label>
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={(date) => date && setSelectedDate(date)}
-                className="rounded-md border"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Players Present</Label>
-              <div className="flex gap-2 flex-wrap">
-                {presentPlayerIds.map((playerId) => (
-                  <Badge key={playerId} variant="secondary">
-                    <Tag className="h-3 w-3 mr-1" />
-                    {getPlayerName(playerId)}
-                  </Badge>
-                ))}
+    <div className="grid md:grid-cols-2 gap-6">
+      {/* New Practice Note Form */}
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>New Practice Note</CardTitle>
+            <CardDescription>Record notes from today's practice session</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form
+              onSubmit={form.handleSubmit((data) => createNoteMutation.mutate(data))}
+              className="space-y-4"
+            >
+              <div className="space-y-2">
+                <Label>Practice Date</Label>
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(date) => date && setSelectedDate(date)}
+                  className="rounded-md border"
+                />
               </div>
-              {presentPlayerIds.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                  No players marked as present for this date. Mark players as present in the Attendance tab first.
-                </p>
-              )}
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="notes">Practice Notes</Label>
-              <Textarea
-                id="notes"
-                {...form.register("notes")}
-                placeholder="Enter your practice notes here..."
-                className="min-h-[100px]"
-              />
-            </div>
+              <div className="space-y-2">
+                <Label>Players Present</Label>
+                <div className="flex gap-2 flex-wrap">
+                  {presentPlayerIds.map((playerId) => (
+                    <Badge key={playerId} variant="secondary">
+                      <Tag className="h-3 w-3 mr-1" />
+                      {getPlayerName(playerId)}
+                    </Badge>
+                  ))}
+                </div>
+                {presentPlayerIds.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    No players marked as present for this date. Mark players as present in the Attendance tab first.
+                  </p>
+                )}
+              </div>
 
-            <Button type="submit" disabled={createNoteMutation.isPending || presentPlayerIds.length === 0}>
-              {createNoteMutation.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                'Save Practice Note'
-              )}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+              <div className="space-y-2">
+                <Label htmlFor="notes">Practice Notes</Label>
+                <Textarea
+                  id="notes"
+                  {...form.register("notes")}
+                  placeholder="Enter your practice notes here..."
+                  className="min-h-[100px]"
+                />
+              </div>
 
+              <Button type="submit" disabled={createNoteMutation.isPending || presentPlayerIds.length === 0}>
+                {createNoteMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save Practice Note'
+                )}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Practice Notes List */}
       <div className="space-y-4">
-        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search notes..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8"
-              />
-            </div>
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            {players?.map((player) => (
-              <Badge
-                key={player.id}
-                variant={filterPlayers.includes(player.id) ? "default" : "outline"}
-                className="cursor-pointer"
-                onClick={() => {
-                  setFilterPlayers(
-                    filterPlayers.includes(player.id)
-                      ? filterPlayers.filter((id) => id !== player.id)
-                      : [...filterPlayers, player.id]
-                  );
-                }}
-              >
-                <Tag className="h-3 w-3 mr-1" />
-                {player.name}
-              </Badge>
-            ))}
-          </div>
-        </div>
-
-        <h2 className="text-xl font-semibold">Previous Practice Notes</h2>
-        {filteredNotes?.map((note) => (
-          <Card key={note.id}>
-            <CardHeader>
-              <CardTitle className="text-sm text-muted-foreground">
-                {format(new Date(note.practiceDate), "MMMM d, yyyy")}
-              </CardTitle>
-              <div className="flex gap-1 flex-wrap">
-                {note.playerIds?.map((playerId) => (
-                  <Badge key={playerId} variant="outline">
-                    <Tag className="h-3 w-3 mr-1" />
-                    {getPlayerName(playerId)}
-                  </Badge>
-                ))}
+        <Card>
+          <CardHeader>
+            <CardTitle>Practice Notes History</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search notes..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-8"
+                  />
+                </div>
               </div>
-            </CardHeader>
-            <CardContent>
-              <p className="whitespace-pre-wrap">{note.notes}</p>
-            </CardContent>
-          </Card>
-        ))}
-        {filteredNotes?.length === 0 && (
-          <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
-              No notes found matching your search criteria
-            </CardContent>
-          </Card>
-        )}
+            </div>
+
+            <div className="space-y-4">
+              {filteredNotes?.map((note) => (
+                <Card key={note.id}>
+                  <CardHeader>
+                    <CardTitle className="text-sm text-muted-foreground">
+                      {format(new Date(note.practiceDate), "MMMM d, yyyy")}
+                    </CardTitle>
+                    <div className="flex gap-1 flex-wrap">
+                      {note.playerIds?.map((playerId) => (
+                        <Badge key={playerId} variant="outline">
+                          <Tag className="h-3 w-3 mr-1" />
+                          {getPlayerName(playerId)}
+                        </Badge>
+                      ))}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="whitespace-pre-wrap">{note.notes}</p>
+                  </CardContent>
+                </Card>
+              ))}
+              {(!filteredNotes || filteredNotes.length === 0) && (
+                <div className="text-center text-muted-foreground py-4">
+                  No practice notes found
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

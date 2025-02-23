@@ -52,6 +52,33 @@ export class MemStorage implements IStorage {
     this.sessionStore = new MemoryStore({
       checkPeriod: 86400000,
     });
+
+    // Add default test data
+    const coach = {
+      id: this.currentId++,
+      username: "omok",
+      password: "$2b$10$K.0HwpsoPDGaB/atFBmmXOd6GqGjC9DJWOcqYB9Y2HJtJEHQHAoY.", // hashed 'omok'
+      role: "coach",
+      name: "Otto"
+    };
+    this.users.set(coach.id, coach);
+
+    // Create default team
+    const team = {
+      id: this.currentId++,
+      name: "CMS",
+      coachId: coach.id,
+      description: ""
+    };
+    this.teams.set(team.id, team);
+
+    // Create default players
+    const players = [
+      { id: this.currentId++, name: "Nolan", teamId: team.id, parentId: 1, active: true },
+      { id: this.currentId++, name: "Alex", teamId: team.id, parentId: 2, active: true },
+      { id: this.currentId++, name: "Owen", teamId: team.id, parentId: 3, active: true }
+    ];
+    players.forEach(player => this.players.set(player.id, player));
   }
 
   async getUser(id: number): Promise<User | undefined> {
@@ -103,7 +130,7 @@ export class MemStorage implements IStorage {
 
   async createAttendance(attendance: InsertAttendance): Promise<Attendance> {
     const id = this.currentId++;
-    const newAttendance: Attendance = { 
+    const newAttendance: Attendance = {
       ...attendance,
       id,
       date: new Date(attendance.date) // Ensure date is properly converted

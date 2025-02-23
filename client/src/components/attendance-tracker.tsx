@@ -29,7 +29,10 @@ export function AttendanceTracker({ teamId }: { teamId: number }) {
 
   const saveAttendanceMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await apiRequest("POST", `/api/teams/${teamId}/attendance`, data);
+      const res = await apiRequest("POST", `/api/teams/${teamId}/attendance`, {
+        ...data,
+        date: data.date.toISOString(), // Convert Date to ISO string
+      });
       return res.json();
     },
     onSuccess: () => {

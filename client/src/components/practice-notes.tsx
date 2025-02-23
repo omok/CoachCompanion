@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { PracticeNote, Player, insertPracticeNoteSchema } from "@shared/schema";
+import { PracticeNote, Player, Attendance, insertPracticeNoteSchema } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,15 +17,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Tag, Search, CalendarIcon } from "lucide-react";
+import { Loader2, Tag, Search } from "lucide-react";
 import { format } from "date-fns";
-import { Checkbox } from "@/components/ui/checkbox";
 
 export function PracticeNotes({ teamId }: { teamId: number }) {
-  const [selectedPlayers, setSelectedPlayers] = useState<number[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterPlayers, setFilterPlayers] = useState<number[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [presentPlayerIds, setPresentPlayerIds] = useState<number[]>([]);
 
   const form = useForm({
     resolver: zodResolver(
@@ -41,11 +40,30 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
     queryKey: [`/api/teams/${teamId}/players`],
   });
 
+  const { data: attendance, isLoading: isLoadingAttendance } = useQuery<Attendance[]>({
+    queryKey: [`/api/teams/${teamId}/attendance`],
+  });
+
+  // Update present players when date or attendance data changes
+  useEffect(() => {
+    if (attendance) {
+      const selectedDateStr = selectedDate.toISOString().split('T')[0];
+      const presentPlayers = attendance
+        .filter(record => {
+          const recordDate = new Date(record.date).toISOString().split('T')[0];
+          return recordDate === selectedDateStr && record.present;
+        })
+        .map(record => record.playerId);
+
+      setPresentPlayerIds(presentPlayers);
+    }
+  }, [selectedDate, attendance]);
+
   const createNoteMutation = useMutation({
     mutationFn: async (data: any) => {
       const res = await apiRequest("POST", `/api/teams/${teamId}/practice-notes`, {
         ...data,
-        playerIds: selectedPlayers,
+        playerIds: presentPlayerIds,
         practiceDate: selectedDate.toISOString(),
       });
       return res.json();
@@ -53,7 +71,6 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/teams/${teamId}/practice-notes`] });
       form.reset();
-      setSelectedPlayers([]);
     },
   });
 
@@ -64,7 +81,7 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
     return matchesSearch && matchesPlayers;
   });
 
-  if (isLoadingNotes || isLoadingPlayers) {
+  if (isLoadingNotes || isLoadingPlayers || isLoadingAttendance) {
     return (
       <div className="flex justify-center">
         <Loader2 className="h-6 w-6 animate-spin" />
@@ -100,21 +117,12 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
 
             <div className="space-y-2">
               <Label>Players Present</Label>
-              <div className="space-y-2">
-                {players?.map((player) => (
-                  <div key={player.id} className="flex items-center space-x-2">
-                    <Checkbox
-                      checked={selectedPlayers.includes(player.id)}
-                      onCheckedChange={(checked) => {
-                        setSelectedPlayers(
-                          checked
-                            ? [...selectedPlayers, player.id]
-                            : selectedPlayers.filter((id) => id !== player.id)
-                        );
-                      }}
-                    />
-                    <Label>{player.name}</Label>
-                  </div>
+              <div className="flex gap-2 flex-wrap">
+                {presentPlayerIds.map((playerId) => (
+                  <Badge key={playerId} variant="secondary">
+                    <Tag className="h-3 w-3 mr-1" />
+                    {getPlayerName(playerId)}
+                  </Badge>
                 ))}
               </div>
             </div>
@@ -175,7 +183,7 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
           <Card key={note.id}>
             <CardHeader>
               <CardTitle className="text-sm text-muted-foreground">
-                {format(new Date(note.practiceDate), "MMMM d, yyyy 'at' h:mm a")}
+                {format(new Date(note.practiceDate), "MMMM d, yyyy")}
               </CardTitle>
               <div className="flex gap-1 flex-wrap">
                 {note.playerIds?.map((playerId) => (

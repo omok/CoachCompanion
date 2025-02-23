@@ -14,6 +14,7 @@ import {
   Book,
   Loader2,
 } from "lucide-react";
+import { CreateTeamDialog } from "@/components/create-team-dialog";
 
 export default function Dashboard() {
   const { user, logoutMutation } = useAuth();
@@ -53,17 +54,7 @@ export default function Dashboard() {
                   {team.name}
                 </Button>
               ))}
-              {user?.role === "coach" && (
-                <Button
-                  variant="outline"
-                  className="w-full mt-2"
-                  onClick={() => {
-                    // TODO: Implement team creation
-                  }}
-                >
-                  Add Team
-                </Button>
-              )}
+              {user?.role === "coach" && <CreateTeamDialog />}
             </div>
           )}
         </div>

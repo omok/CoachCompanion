@@ -25,6 +25,8 @@ export interface IStorage {
   // Attendance operations
   createAttendance(attendance: InsertAttendance): Promise<Attendance>;
   getAttendanceByTeamId(teamId: number): Promise<Attendance[]>;
+  getAttendanceByTeamAndDate(teamId: number, date: Date): Promise<Attendance[]>;
+  updateAttendance(teamId: number, date: Date, records: InsertAttendance[]): Promise<Attendance[]>;
 
   // Practice notes operations
   createPracticeNote(note: InsertPracticeNote): Promise<PracticeNote>;
@@ -99,6 +101,40 @@ export class MemStorage implements IStorage {
     return Array.from(this.players.values()).filter(
       (player) => player.teamId === teamId,
     );
+  }
+
+  async getAttendanceByTeamAndDate(teamId: number, date: Date): Promise<Attendance[]> {
+    const dateStr = date.toISOString().split('T')[0];
+    return Array.from(this.attendance.values()).filter(record => {
+      const recordDateStr = record.date.toISOString().split('T')[0];
+      return record.teamId === teamId && recordDateStr === dateStr;
+    });
+  }
+
+  async updateAttendance(teamId: number, date: Date, records: InsertAttendance[]): Promise<Attendance[]> {
+    // Remove existing records for this date and team
+    const dateStr = date.toISOString().split('T')[0];
+    this.attendance = new Map(
+      Array.from(this.attendance.entries()).filter(([_, record]) => {
+        const recordDateStr = record.date.toISOString().split('T')[0];
+        return !(record.teamId === teamId && recordDateStr === dateStr);
+      })
+    );
+
+    // Add new records
+    const newRecords: Attendance[] = [];
+    for (const record of records) {
+      const id = this.currentId++;
+      const newRecord: Attendance = {
+        ...record,
+        id,
+        date: new Date(record.date)
+      };
+      this.attendance.set(id, newRecord);
+      newRecords.push(newRecord);
+    }
+
+    return newRecords;
   }
 
   async createAttendance(attendance: InsertAttendance): Promise<Attendance> {

@@ -65,12 +65,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!team || team.coachId !== req.user.id) return res.sendStatus(403);
 
     try {
-      const parsed = insertAttendanceSchema.parse({
-        ...req.body,
+      const date = new Date(req.body.date);
+
+      // Group all attendance records for the same date
+      const records = [{
+        playerId: req.body.playerId,
         teamId,
-        date: new Date(req.body.date)
-      });
-      const attendance = await storage.createAttendance(parsed);
+        date,
+        present: req.body.present
+      }];
+
+      // Update attendance records
+      const attendance = await storage.updateAttendance(teamId, date, records);
       res.status(201).json(attendance);
     } catch (error) {
       console.error('Error saving attendance:', error);

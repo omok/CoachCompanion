@@ -50,35 +50,8 @@ export class MemStorage implements IStorage {
     this.practiceNotes = new Map();
     this.currentId = 1;
     this.sessionStore = new MemoryStore({
-      checkPeriod: 86400000,
+      checkPeriod: 86400000, // 24 hours
     });
-
-    // Add default test data
-    const coach = {
-      id: this.currentId++,
-      username: "omok",
-      password: "$2b$10$K.0HwpsoPDGaB/atFBmmXOd6GqGjC9DJWOcqYB9Y2HJtJEHQHAoY.", // hashed 'omok'
-      role: "coach",
-      name: "Otto"
-    };
-    this.users.set(coach.id, coach);
-
-    // Create default team
-    const team = {
-      id: this.currentId++,
-      name: "CMS",
-      coachId: coach.id,
-      description: ""
-    };
-    this.teams.set(team.id, team);
-
-    // Create default players
-    const players = [
-      { id: this.currentId++, name: "Nolan", teamId: team.id, parentId: 1, active: true },
-      { id: this.currentId++, name: "Alex", teamId: team.id, parentId: 2, active: true },
-      { id: this.currentId++, name: "Owen", teamId: team.id, parentId: 3, active: true }
-    ];
-    players.forEach(player => this.players.set(player.id, player));
   }
 
   async getUser(id: number): Promise<User | undefined> {
@@ -100,7 +73,7 @@ export class MemStorage implements IStorage {
 
   async createTeam(team: InsertTeam): Promise<Team> {
     const id = this.currentId++;
-    const newTeam: Team = { ...team, id };
+    const newTeam: Team = { ...team, id, description: team.description || null };
     this.teams.set(id, newTeam);
     return newTeam;
   }
@@ -117,7 +90,7 @@ export class MemStorage implements IStorage {
 
   async createPlayer(player: InsertPlayer): Promise<Player> {
     const id = this.currentId++;
-    const newPlayer: Player = { ...player, id };
+    const newPlayer: Player = { ...player, id, active: player.active ?? true };
     this.players.set(id, newPlayer);
     return newPlayer;
   }
@@ -133,7 +106,7 @@ export class MemStorage implements IStorage {
     const newAttendance: Attendance = {
       ...attendance,
       id,
-      date: new Date(attendance.date) // Ensure date is properly converted
+      date: new Date(attendance.date)
     };
     this.attendance.set(id, newAttendance);
     return newAttendance;
@@ -151,6 +124,7 @@ export class MemStorage implements IStorage {
       ...note,
       id,
       practiceDate: new Date(note.practiceDate),
+      playerIds: note.playerIds || null
     };
     this.practiceNotes.set(id, newNote);
     return newNote;

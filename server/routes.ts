@@ -1,11 +1,14 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { setupAuth } from "./auth";
+import { setupAuth, initializeTestData } from "./auth";
 import { storage } from "./storage";
 import { insertTeamSchema, insertPlayerSchema, insertAttendanceSchema, insertPracticeNoteSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
+
+  // Initialize test data
+  await initializeTestData();
 
   // Teams
   app.post("/api/teams", async (req, res) => {
@@ -65,7 +68,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const parsed = insertAttendanceSchema.parse({
         ...req.body,
         teamId,
-        date: new Date(req.body.date) // Parse the ISO string into a Date object
+        date: new Date(req.body.date)
       });
       const attendance = await storage.createAttendance(parsed);
       res.status(201).json(attendance);

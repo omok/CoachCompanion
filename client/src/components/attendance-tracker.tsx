@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Player, Attendance, insertAttendanceSchema } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -18,6 +18,7 @@ import { AttendanceStats } from "./attendance-stats";
 
 export function AttendanceTracker({ teamId }: { teamId: number }) {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [attendanceState, setAttendanceState] = useState<Record<number, boolean>>({});
 
   const { data: players, isLoading: isLoadingPlayers } = useQuery<Player[]>({
     queryKey: [`/api/teams/${teamId}/players`],
@@ -26,6 +27,28 @@ export function AttendanceTracker({ teamId }: { teamId: number }) {
   const { data: attendance, isLoading: isLoadingAttendance } = useQuery<Attendance[]>({
     queryKey: [`/api/teams/${teamId}/attendance`],
   });
+
+  // Update attendance state when date changes or new attendance data is loaded
+  useEffect(() => {
+    if (attendance && players) {
+      // Reset all players to not present
+      const newState: Record<number, boolean> = {};
+      players.forEach(player => {
+        newState[player.id] = false;
+      });
+
+      // Find attendance records for the selected date
+      const selectedDateStr = selectedDate.toISOString().split('T')[0];
+      attendance.forEach(record => {
+        const recordDate = new Date(record.date).toISOString().split('T')[0];
+        if (recordDate === selectedDateStr) {
+          newState[record.playerId] = record.present;
+        }
+      });
+
+      setAttendanceState(newState);
+    }
+  }, [selectedDate, attendance, players]);
 
   const saveAttendanceMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -39,8 +62,6 @@ export function AttendanceTracker({ teamId }: { teamId: number }) {
       queryClient.invalidateQueries({ queryKey: [`/api/teams/${teamId}/attendance`] });
     },
   });
-
-  const [attendanceState, setAttendanceState] = useState<Record<number, boolean>>({});
 
   const handleSaveAttendance = () => {
     Object.entries(attendanceState).forEach(([playerId, present]) => {

@@ -19,8 +19,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Tag, Search } from "lucide-react";
 import { format } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
 
 export function PracticeNotes({ teamId }: { teamId: number }) {
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterPlayers, setFilterPlayers] = useState<number[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -71,6 +73,17 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/teams/${teamId}/practice-notes`] });
       form.reset();
+      toast({
+        title: "Practice note saved",
+        description: "Your practice note has been saved successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to save practice note",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
@@ -116,16 +129,6 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="notes">Practice Notes</Label>
-              <Textarea
-                id="notes"
-                {...form.register("notes")}
-                placeholder="Enter your practice notes here..."
-                className="min-h-[100px]"
-              />
-            </div>
-
-            <div className="space-y-2">
               <Label>Players Present</Label>
               <div className="flex gap-2 flex-wrap">
                 {presentPlayerIds.map((playerId) => (
@@ -135,10 +138,32 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
                   </Badge>
                 ))}
               </div>
+              {presentPlayerIds.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  No players marked as present for this date. Mark players as present in the Attendance tab first.
+                </p>
+              )}
             </div>
 
-            <Button type="submit" disabled={createNoteMutation.isPending}>
-              Save Practice Note
+            <div className="space-y-2">
+              <Label htmlFor="notes">Practice Notes</Label>
+              <Textarea
+                id="notes"
+                {...form.register("notes")}
+                placeholder="Enter your practice notes here..."
+                className="min-h-[100px]"
+              />
+            </div>
+
+            <Button type="submit" disabled={createNoteMutation.isPending || presentPlayerIds.length === 0}>
+              {createNoteMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save Practice Note'
+              )}
             </Button>
           </form>
         </CardContent>

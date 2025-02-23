@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Loader2, Save } from "lucide-react";
+import { AttendanceStats } from "./attendance-stats";
 
 export function AttendanceTracker({ teamId }: { teamId: number }) {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -59,54 +60,61 @@ export function AttendanceTracker({ teamId }: { teamId: number }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row gap-6">
-        <div className="flex-1">
+      <div className="grid md:grid-cols-2 gap-6">
+        <div>
           <h2 className="text-xl font-semibold mb-4">Take Attendance</h2>
-          <Calendar
-            mode="single"
-            selected={selectedDate}
-            onSelect={(date) => date && setSelectedDate(date)}
-            className="rounded-md border"
-          />
-        </div>
-        
-        <div className="flex-[2]">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-medium">
-              Attendance for {selectedDate.toLocaleDateString()}
-            </h3>
-            <Button onClick={handleSaveAttendance}>
-              <Save className="h-4 w-4 mr-2" />
-              Save Attendance
-            </Button>
-          </div>
+          <div className="space-y-4">
+            <Calendar
+              mode="single"
+              selected={selectedDate}
+              onSelect={(date) => date && setSelectedDate(date)}
+              className="rounded-md border"
+            />
 
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Player</TableHead>
-                <TableHead className="w-24">Present</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {players?.map((player) => (
-                <TableRow key={player.id}>
-                  <TableCell>{player.name}</TableCell>
-                  <TableCell>
-                    <Checkbox
-                      checked={attendanceState[player.id] ?? false}
-                      onCheckedChange={(checked) =>
-                        setAttendanceState((prev) => ({
-                          ...prev,
-                          [player.id]: checked === true,
-                        }))
-                      }
-                    />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-medium">
+                  Attendance for {selectedDate.toLocaleDateString()}
+                </h3>
+                <Button onClick={handleSaveAttendance}>
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Attendance
+                </Button>
+              </div>
+
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Player</TableHead>
+                    <TableHead className="w-24">Present</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {players?.map((player) => (
+                    <TableRow key={player.id}>
+                      <TableCell>{player.name}</TableCell>
+                      <TableCell>
+                        <Checkbox
+                          checked={attendanceState[player.id] ?? false}
+                          onCheckedChange={(checked) =>
+                            setAttendanceState((prev) => ({
+                              ...prev,
+                              [player.id]: checked === true,
+                            }))
+                          }
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Attendance Statistics</h2>
+          <AttendanceStats teamId={teamId} />
         </div>
       </div>
     </div>

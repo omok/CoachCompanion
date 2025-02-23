@@ -103,7 +103,11 @@ export class MemStorage implements IStorage {
 
   async createAttendance(attendance: InsertAttendance): Promise<Attendance> {
     const id = this.currentId++;
-    const newAttendance: Attendance = { ...attendance, id };
+    const newAttendance: Attendance = { 
+      ...attendance,
+      id,
+      date: new Date(attendance.date) // Ensure date is properly converted
+    };
     this.attendance.set(id, newAttendance);
     return newAttendance;
   }

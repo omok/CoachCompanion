@@ -31,7 +31,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!team || (req.user.role === "coach" && team.coachId !== req.user.id)) {
       return res.sendStatus(403);
     }
-    
+
     const parsed = insertPlayerSchema.parse({
       ...req.body,
       teamId,
@@ -60,10 +60,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const teamId = parseInt(req.params.teamId);
     const team = await storage.getTeam(teamId);
     if (!team || team.coachId !== req.user.id) return res.sendStatus(403);
-    
-    const parsed = insertAttendanceSchema.parse({ ...req.body, teamId });
-    const attendance = await storage.createAttendance(parsed);
-    res.status(201).json(attendance);
+
+    try {
+      const parsed = insertAttendanceSchema.parse({
+        ...req.body,
+        teamId,
+        date: new Date(req.body.date) // Parse the ISO string into a Date object
+      });
+      const attendance = await storage.createAttendance(parsed);
+      res.status(201).json(attendance);
+    } catch (error) {
+      console.error('Error saving attendance:', error);
+      res.status(400).json({ error: 'Invalid attendance data' });
+    }
   });
 
   app.get("/api/teams/:teamId/attendance", async (req, res) => {
@@ -85,7 +94,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const teamId = parseInt(req.params.teamId);
     const team = await storage.getTeam(teamId);
     if (!team || team.coachId !== req.user.id) return res.sendStatus(403);
-    
+
     const parsed = insertSessionNoteSchema.parse({
       ...req.body,
       teamId,

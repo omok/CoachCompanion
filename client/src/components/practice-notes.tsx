@@ -66,6 +66,24 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
     }
   }, [selectedDate, attendance]);
 
+  // Load existing note for the selected date
+  useEffect(() => {
+    if (notes) {
+      const selectedDateStr = formatDateString(selectedDate);
+      const existingNote = notes.find(note => {
+        const noteDateStr = formatDateString(new Date(note.practiceDate));
+        return noteDateStr === selectedDateStr;
+      });
+
+      // If a note exists for this date, pre-fill the form
+      if (existingNote) {
+        form.setValue("notes", existingNote.notes);
+      } else {
+        form.setValue("notes", ""); // Clear the form if no note exists
+      }
+    }
+  }, [selectedDate, notes, form]);
+
   const createNoteMutation = useMutation({
     mutationFn: async (data: any) => {
       // Create date at noon to avoid timezone issues
@@ -81,7 +99,6 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/teams/${teamId}/practice-notes`] });
-      form.reset();
       toast({
         title: "Practice note saved",
         description: "Your practice note has been saved successfully.",

@@ -36,35 +36,45 @@ async function comparePasswords(supplied: string, stored: string) {
 // Initialize test data
 export async function initializeTestData() {
   try {
-    const hashedPassword = await hashPassword("omok");
+    // Check if default coach exists
+    let coach = await storage.getUserByUsername("omok");
+    
+    if (!coach) {
+      const hashedPassword = await hashPassword("omok");
+      coach = await storage.createUser({
+        username: "omok",
+        password: hashedPassword,
+        role: "coach",
+        name: "Otto"
+      });
+    }
 
-    // Add default coach
-    const coach = await storage.createUser({
-      username: "omok",
-      password: hashedPassword,
-      role: "coach",
-      name: "Otto"
-    });
+    // Check if default team exists
+    let team = (await storage.getTeamsByCoachId(coach.id))[0];
+    
+    if (!team) {
+      team = await storage.createTeam({
+        name: "CMS",
+        coachId: coach.id,
+        description: null
+      });
+    }
 
-    // Create default team
-    const team = await storage.createTeam({
-      name: "CMS",
-      coachId: coach.id,
-      description: null
-    });
-
-    // Create default players
-    const players = [
+    // Create default players if they don't exist
+    const existingPlayers = await storage.getPlayersByTeamId(team.id);
+    const defaultPlayers = [
       { name: "Nolan", teamId: team.id, parentId: 1, active: true },
       { name: "Alex", teamId: team.id, parentId: 2, active: true },
       { name: "Owen", teamId: team.id, parentId: 3, active: true }
     ];
 
-    for (const player of players) {
-      await storage.createPlayer(player);
+    for (const player of defaultPlayers) {
+      if (!existingPlayers.some(p => p.name === player.name)) {
+        await storage.createPlayer(player);
+      }
     }
 
-    console.log("Test data initialized successfully");
+    console.log("Test data initialization checked");
   } catch (error) {
     console.error("Error initializing test data:", error);
   }

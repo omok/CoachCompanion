@@ -51,10 +51,18 @@ export function AttendanceTracker({ teamId }: { teamId: number }) {
   }, [selectedDate, attendance, players]);
 
   const saveAttendanceMutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async () => {
+      // Collect all attendance records
+      const records = Object.entries(attendanceState).map(([playerId, present]) => ({
+        playerId: parseInt(playerId),
+        teamId,
+        date: selectedDate,
+        present,
+      }));
+
       const res = await apiRequest("POST", `/api/teams/${teamId}/attendance`, {
-        ...data,
-        date: data.date.toISOString(), // Convert Date to ISO string
+        date: selectedDate.toISOString(),
+        records: records
       });
       return res.json();
     },
@@ -62,17 +70,6 @@ export function AttendanceTracker({ teamId }: { teamId: number }) {
       queryClient.invalidateQueries({ queryKey: [`/api/teams/${teamId}/attendance`] });
     },
   });
-
-  const handleSaveAttendance = () => {
-    Object.entries(attendanceState).forEach(([playerId, present]) => {
-      saveAttendanceMutation.mutate({
-        playerId: parseInt(playerId),
-        teamId,
-        date: selectedDate,
-        present,
-      });
-    });
-  };
 
   if (isLoadingPlayers || isLoadingAttendance) {
     return (
@@ -100,9 +97,21 @@ export function AttendanceTracker({ teamId }: { teamId: number }) {
                 <h3 className="text-lg font-medium">
                   Attendance for {selectedDate.toLocaleDateString()}
                 </h3>
-                <Button onClick={handleSaveAttendance}>
-                  <Save className="h-4 w-4 mr-2" />
-                  Save Attendance
+                <Button 
+                  onClick={() => saveAttendanceMutation.mutate()}
+                  disabled={saveAttendanceMutation.isPending}
+                >
+                  {saveAttendanceMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-2" />
+                      Save Attendance
+                    </>
+                  )}
                 </Button>
               </div>
 

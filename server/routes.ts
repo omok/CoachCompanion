@@ -66,14 +66,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     try {
       const date = new Date(req.body.date);
-
-      // Group all attendance records for the same date
-      const records = [{
-        playerId: req.body.playerId,
+      const records = req.body.records.map((record: any) => ({
+        playerId: record.playerId,
         teamId,
         date,
-        present: req.body.present
-      }];
+        present: record.present
+      }));
 
       // Update attendance records
       const attendance = await storage.updateAttendance(teamId, date, records);

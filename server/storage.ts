@@ -147,6 +147,13 @@ export class DatabaseStorage implements IStorage {
 
   async createPracticeNote(note: InsertPracticeNote): Promise<PracticeNote> {
     try {
+      console.log('Creating practice note with data:', note);
+
+      // Validate required fields
+      if (!note.teamId || !note.coachId || !note.practiceDate || !note.notes || !note.playerIds) {
+        throw new Error('Missing required fields for practice note');
+      }
+
       const [newNote] = await db
         .insert(practiceNotes)
         .values({
@@ -158,10 +165,11 @@ export class DatabaseStorage implements IStorage {
         })
         .returning();
 
+      console.log('Successfully created practice note:', newNote);
       return newNote;
     } catch (error) {
       console.error('Error creating practice note:', error);
-      throw new Error('Failed to create practice note');
+      throw new Error('Failed to create practice note: ' + (error as Error).message);
     }
   }
 

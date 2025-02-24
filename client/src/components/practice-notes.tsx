@@ -88,10 +88,17 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
       }
 
       const presentPlayers = getPresentPlayers(selectedDate);
-
       if (presentPlayers.length === 0) {
         throw new Error("No players marked as present for this date");
       }
+
+      console.log('Submitting practice note:', {
+        teamId,
+        coachId: user.id,
+        notes: data.notes,
+        playerIds: presentPlayers,
+        practiceDate: selectedDate.toISOString()
+      });
 
       const response = await apiRequest(
         "POST",
@@ -101,7 +108,7 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
           coachId: user.id,
           notes: data.notes,
           playerIds: presentPlayers,
-          practiceDate: selectedDate.toISOString(),
+          practiceDate: selectedDate.toISOString()
         }
       );
 
@@ -110,7 +117,9 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
         throw new Error(error.message || "Failed to save practice note");
       }
 
-      return response.json();
+      const result = await response.json();
+      console.log('Practice note saved successfully:', result);
+      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ 
@@ -120,9 +129,9 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
         title: "Success",
         description: "Practice note saved successfully",
       });
-      // Don't reset the form here since we want to keep the current note visible
     },
     onError: (error: Error) => {
+      console.error('Error saving practice note:', error);
       toast({
         title: "Error",
         description: error.message,

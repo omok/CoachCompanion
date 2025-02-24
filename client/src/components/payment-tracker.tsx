@@ -76,12 +76,8 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: [`/api/teams/${teamId}/payments`],
-      });
-      queryClient.invalidateQueries({
-        queryKey: [`/api/teams/${teamId}/payments/totals`],
-      });
+      queryClient.invalidateQueries({ queryKey: [`/api/teams/${teamId}/payments`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/teams/${teamId}/payments/totals`] });
       form.reset({
         date: format(new Date(), "yyyy-MM-dd"),
         amount: "",

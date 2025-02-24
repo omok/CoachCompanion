@@ -1,12 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Payment, Player, insertPaymentSchema } from "@shared/schema";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -23,7 +17,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Loader2 } from "lucide-react";
-import { queryClient } from "@/lib/queryClient";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { z } from "zod";
 
 type PaymentFormData = {
@@ -70,16 +64,15 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
 
   const addPaymentMutation = useMutation({
     mutationFn: async (data: PaymentFormData) => {
-      const response = await fetch(`/api/teams/${teamId}/payments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...data,
-          teamId,
-          amount: Number(data.amount),
-        }),
+      const response = await apiRequest("POST", `/api/teams/${teamId}/payments`, {
+        ...data,
+        teamId,
+        amount: Number(data.amount),
       });
-      if (!response.ok) throw new Error("Failed to add payment");
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error);
+      }
       return response.json();
     },
     onSuccess: () => {
@@ -89,16 +82,19 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
       queryClient.invalidateQueries({
         queryKey: [`/api/teams/${teamId}/payments/totals`],
       });
-      form.reset();
+      form.reset({
+        date: format(new Date(), "yyyy-MM-dd"),
+        amount: "",
+      });
       toast({
         title: "Payment Added",
         description: "The payment has been recorded successfully.",
       });
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
-        description: "Failed to add payment. Please try again.",
+        description: error.message || "Failed to add payment. Please try again.",
         variant: "destructive",
       });
     },

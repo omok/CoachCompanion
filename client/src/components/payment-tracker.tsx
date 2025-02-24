@@ -24,11 +24,11 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Loader2 } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
-import { z } from "zod"; // Add this import
+import { z } from "zod";
 
 type PaymentFormData = {
   playerId: number;
-  amount: number;
+  amount: string;
   date: string;
   notes?: string;
 };
@@ -44,12 +44,13 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
   const form = useForm<PaymentFormData>({
     resolver: zodResolver(
       insertPaymentSchema.extend({
-        amount: insertPaymentSchema.shape.amount,
+        amount: z.string().min(1, "Amount is required"),
         date: z.string(),
       }),
     ),
     defaultValues: {
       date: format(new Date(), "yyyy-MM-dd"),
+      amount: "",
     },
   });
 
@@ -172,10 +173,12 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
                       <Input
                         type="number"
                         step="0.01"
+                        min="0"
                         placeholder="0.00"
                         {...field}
                       />
                     </FormControl>
+                    <FormDescription>Enter the payment amount (e.g., 10.00)</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

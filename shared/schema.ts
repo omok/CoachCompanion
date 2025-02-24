@@ -104,7 +104,9 @@ export const insertPracticeNoteSchema = z.object({
 export const insertPaymentSchema = z.object({
   playerId: z.number(),
   teamId: z.number(),
-  amount: z.number(),
+  amount: z.string()
+    .transform((val) => Number(val))
+    .pipe(z.number().positive().multipleOf(0.01)),
   date: z.string().transform(date => new Date(date)),
   notes: z.string().optional(),
 });

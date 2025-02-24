@@ -1,10 +1,10 @@
 import {
-  users, teams, players, attendance, practiceNotes,
-  type User, type Team, type Player, type Attendance, type PracticeNote,
-  type InsertUser, type InsertTeam, type InsertPlayer, type InsertAttendance, type InsertPracticeNote
+  users, teams, players, attendance, practiceNotes, payments,
+  type User, type Team, type Player, type Attendance, type PracticeNote, type Payment,
+  type InsertUser, type InsertTeam, type InsertPlayer, type InsertAttendance, type InsertPracticeNote, type InsertPayment
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, lte } from "drizzle-orm";
+import { eq, and, gte, lte, sum } from "drizzle-orm";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { pool } from "./db";
@@ -35,6 +35,12 @@ export interface IStorage {
   // Practice notes operations
   createPracticeNote(note: InsertPracticeNote): Promise<PracticeNote>;
   getPracticeNotesByTeamId(teamId: number): Promise<PracticeNote[]>;
+
+  // New payment operations
+  createPayment(payment: InsertPayment): Promise<Payment>;
+  getPaymentsByTeamId(teamId: number): Promise<Payment[]>;
+  getPaymentsByPlayerId(playerId: number): Promise<Payment[]>;
+  getPaymentTotalsByTeam(teamId: number): Promise<{ playerId: number; total: number; }[]>;
 
   sessionStore: session.Store;
 }
@@ -197,6 +203,44 @@ export class DatabaseStorage implements IStorage {
       console.error('Error getting practice notes:', error);
       throw error;
     }
+  }
+
+  async createPayment(payment: InsertPayment): Promise<Payment> {
+    const [newPayment] = await db.insert(payments).values(payment).returning();
+    return newPayment;
+  }
+
+  async getPaymentsByTeamId(teamId: number): Promise<Payment[]> {
+    return await db
+      .select()
+      .from(payments)
+      .where(eq(payments.teamId, teamId))
+      .orderBy(payments.date);
+  }
+
+  async getPaymentsByPlayerId(playerId: number): Promise<Payment[]> {
+    return await db
+      .select()
+      .from(payments)
+      .where(eq(payments.playerId, playerId))
+      .orderBy(payments.date);
+  }
+
+  async getPaymentTotalsByTeam(teamId: number): Promise<{ playerId: number; total: number; }[]> {
+    const result = await db
+      .select({
+        playerId: payments.playerId,
+        total: sum(payments.amount).as('total'),
+      })
+      .from(payments)
+      .where(eq(payments.teamId, teamId))
+      .groupBy(payments.playerId)
+      .orderBy(sum(payments.amount), 'desc');
+
+    return result.map(row => ({
+      playerId: row.playerId,
+      total: Number(row.total) || 0,
+    }));
   }
 }
 

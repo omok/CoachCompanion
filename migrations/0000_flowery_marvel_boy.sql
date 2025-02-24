@@ -44,3 +44,12 @@ CREATE TABLE "users" (
 	"name" text NOT NULL,
 	CONSTRAINT "users_username_unique" UNIQUE("username")
 );
+--> statement-breakpoint
+CREATE TABLE "payments" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"player_id" integer NOT NULL,
+	"team_id" integer NOT NULL,
+	"amount" numeric NOT NULL,
+	"date" timestamp NOT NULL,
+	"notes" text
+);

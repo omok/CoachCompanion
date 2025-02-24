@@ -92,34 +92,35 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
         throw new Error("No players marked as present for this date");
       }
 
-      console.log('Submitting practice note:', {
+      const requestData = {
         teamId,
         coachId: user.id,
         notes: data.notes,
         playerIds: presentPlayers,
         practiceDate: selectedDate.toISOString()
-      });
+      };
 
-      const response = await apiRequest(
-        "POST",
-        `/api/teams/${teamId}/practice-notes`,
-        {
-          teamId: teamId,
-          coachId: user.id,
-          notes: data.notes,
-          playerIds: presentPlayers,
-          practiceDate: selectedDate.toISOString()
+      console.log('Submitting practice note:', requestData);
+
+      try {
+        const response = await apiRequest(
+          "POST",
+          `/api/teams/${teamId}/practice-notes`,
+          requestData
+        );
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || "Failed to save practice note");
         }
-      );
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to save practice note");
+        const result = await response.json();
+        console.log('Practice note saved successfully:', result);
+        return result;
+      } catch (error) {
+        console.error('Error in practice note mutation:', error);
+        throw error;
       }
-
-      const result = await response.json();
-      console.log('Practice note saved successfully:', result);
-      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ 

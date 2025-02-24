@@ -28,6 +28,11 @@ export function AttendanceTracker({ teamId }: { teamId: number }) {
     queryKey: [`/api/teams/${teamId}/attendance`],
   });
 
+  // Helper function to format date to YYYY-MM-DD
+  function formatDateString(date: Date): string {
+    return date.toLocaleDateString('en-CA'); // Returns YYYY-MM-DD
+  }
+
   useEffect(() => {
     if (attendance && players) {
       // Reset all players to not present
@@ -37,9 +42,9 @@ export function AttendanceTracker({ teamId }: { teamId: number }) {
       });
 
       // Find attendance records for the selected date
-      const selectedDateStr = formatLocalDate(selectedDate);
+      const selectedDateStr = formatDateString(selectedDate);
       attendance.forEach(record => {
-        const recordDateStr = formatLocalDate(new Date(record.date));
+        const recordDateStr = formatDateString(new Date(record.date));
         if (recordDateStr === selectedDateStr) {
           newState[record.playerId] = record.present;
         }
@@ -49,24 +54,19 @@ export function AttendanceTracker({ teamId }: { teamId: number }) {
     }
   }, [selectedDate, attendance, players]);
 
-  // Helper function to format date to YYYY-MM-DD in local time
-  function formatLocalDate(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }
-
   const saveAttendanceMutation = useMutation({
     mutationFn: async () => {
-      // Create a new Date object at midnight of the selected date
-      const localDate = new Date(formatLocalDate(selectedDate));
+      // Get the date string in YYYY-MM-DD format
+      const dateStr = formatDateString(selectedDate);
+
+      // Create date at noon to avoid timezone issues
+      const localDate = new Date(dateStr + 'T12:00:00');
 
       // Collect all attendance records
       const records = Object.entries(attendanceState).map(([playerId, present]) => ({
         playerId: parseInt(playerId),
         teamId,
-        date: localDate,
+        date: localDate.toISOString(),
         present,
       }));
 

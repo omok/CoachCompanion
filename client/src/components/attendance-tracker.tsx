@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Player, Attendance, insertAttendanceSchema } from "@shared/schema";
+import { Player, Attendance } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -28,7 +28,6 @@ export function AttendanceTracker({ teamId }: { teamId: number }) {
     queryKey: [`/api/teams/${teamId}/attendance`],
   });
 
-  // Update attendance state when date changes or new attendance data is loaded
   useEffect(() => {
     if (attendance && players) {
       // Reset all players to not present
@@ -38,9 +37,9 @@ export function AttendanceTracker({ teamId }: { teamId: number }) {
       });
 
       // Find attendance records for the selected date
-      const selectedDateStr = selectedDate.toISOString().split('T')[0];
+      const selectedDateStr = formatDateToLocalString(selectedDate);
       attendance.forEach(record => {
-        const recordDateStr = new Date(record.date).toISOString().split('T')[0];
+        const recordDateStr = formatDateToLocalString(new Date(record.date));
         if (recordDateStr === selectedDateStr) {
           newState[record.playerId] = record.present;
         }
@@ -50,10 +49,15 @@ export function AttendanceTracker({ teamId }: { teamId: number }) {
     }
   }, [selectedDate, attendance, players]);
 
+  // Helper function to format date to YYYY-MM-DD in local time
+  function formatDateToLocalString(date: Date): string {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  }
+
   const saveAttendanceMutation = useMutation({
     mutationFn: async () => {
-      // Format date as YYYY-MM-DD
-      const dateStr = selectedDate.toISOString().split('T')[0];
+      // Format date as YYYY-MM-DD in local time
+      const dateStr = formatDateToLocalString(selectedDate);
 
       // Collect all attendance records
       const records = Object.entries(attendanceState).map(([playerId, present]) => ({

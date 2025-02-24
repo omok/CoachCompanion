@@ -9,30 +9,11 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { z } from "zod";
-
-type PaymentFormData = {
-  playerId: number;
-  amount: string;
-  date: string;
-  notes?: string;
-};
-
-type PaymentTotalWithPlayer = {
-  playerId: number;
-  playerName: string;
-  total: number;
-};
 
 export function PaymentTracker({ teamId }: { teamId: number }) {
   const { toast } = useToast();
-  const form = useForm<PaymentFormData>({
-    resolver: zodResolver(
-      insertPaymentSchema.extend({
-        amount: z.string().min(1, "Amount is required"),
-        date: z.string(),
-      }),
-    ),
+  const form = useForm({
+    resolver: zodResolver(insertPaymentSchema.omit({ teamId: true })),
     defaultValues: {
       date: format(new Date(), "yyyy-MM-dd"),
       amount: "",
@@ -54,17 +35,17 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
   });
 
   const addPaymentMutation = useMutation({
-    mutationFn: async (data: PaymentFormData) => {
+    mutationFn: async (data: any) => {
       console.log("Making payment API request with data:", data);
-      const response = await apiRequest("POST", `/api/teams/${teamId}/payments`, {
+      const res = await apiRequest("POST", `/api/teams/${teamId}/payments`, {
         ...data,
         teamId,
       });
-      if (!response.ok) {
-        const error = await response.text();
+      if (!res.ok) {
+        const error = await res.text();
         throw new Error(error);
       }
-      return response.json();
+      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/teams/${teamId}/payments`] });
@@ -80,19 +61,12 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
     },
     onError: (error: Error) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to add payment. Please try again.",
+        title: "Failed to create payment",
+        description: error.message,
         variant: "destructive",
       });
     },
   });
-
-  const paymentTotalsWithNames: PaymentTotalWithPlayer[] =
-    paymentTotals?.map((total) => ({
-      ...total,
-      playerName:
-        players?.find((p) => p.id === total.playerId)?.name || "Unknown Player",
-    })) || [];
 
   if (isLoadingPlayers || isLoadingPayments || isLoadingTotals) {
     return (
@@ -103,6 +77,11 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
   }
 
   if (!players) return null;
+
+  const paymentTotalsWithNames = paymentTotals?.map((total) => ({
+    ...total,
+    playerName: players?.find((p) => p.id === total.playerId)?.name || "Unknown Player",
+  })) || [];
 
   return (
     <div className="space-y-6">

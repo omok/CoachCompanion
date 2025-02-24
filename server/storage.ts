@@ -104,20 +104,42 @@ export class MemStorage implements IStorage {
   }
 
   async getAttendanceByTeamAndDate(teamId: number, date: Date): Promise<Attendance[]> {
-    const dateStr = date.toISOString().split('T')[0];
+    // Convert input date to UTC midnight for comparison
+    const dateUTC = new Date(Date.UTC(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate()
+    ));
+
     return Array.from(this.attendance.values()).filter(record => {
-      const recordDateStr = record.date.toISOString().split('T')[0];
-      return record.teamId === teamId && recordDateStr === dateStr;
+      const recordDate = new Date(record.date);
+      const recordDateUTC = new Date(Date.UTC(
+        recordDate.getFullYear(),
+        recordDate.getMonth(),
+        recordDate.getDate()
+      ));
+      return record.teamId === teamId && recordDateUTC.getTime() === dateUTC.getTime();
     });
   }
 
   async updateAttendance(teamId: number, date: Date, records: InsertAttendance[]): Promise<Attendance[]> {
+    // Convert input date to UTC midnight for comparison
+    const dateUTC = new Date(Date.UTC(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate()
+    ));
+
     // Remove existing records for this date and team
-    const dateStr = date.toISOString().split('T')[0];
     this.attendance = new Map(
       Array.from(this.attendance.entries()).filter(([_, record]) => {
-        const recordDateStr = record.date.toISOString().split('T')[0];
-        return !(record.teamId === teamId && recordDateStr === dateStr);
+        const recordDate = new Date(record.date);
+        const recordDateUTC = new Date(Date.UTC(
+          recordDate.getFullYear(),
+          recordDate.getMonth(),
+          recordDate.getDate()
+        ));
+        return !(record.teamId === teamId && recordDateUTC.getTime() === dateUTC.getTime());
       })
     );
 
@@ -128,7 +150,7 @@ export class MemStorage implements IStorage {
       const newRecord: Attendance = {
         ...record,
         id,
-        date: new Date(record.date)
+        date: dateUTC // Store in UTC
       };
       this.attendance.set(id, newRecord);
       newRecords.push(newRecord);

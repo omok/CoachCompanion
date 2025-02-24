@@ -37,11 +37,23 @@ export function AttendanceTracker({ teamId }: { teamId: number }) {
         newState[player.id] = false;
       });
 
+      // Convert selected date to UTC midnight for comparison
+      const selectedDateUTC = new Date(Date.UTC(
+        selectedDate.getFullYear(),
+        selectedDate.getMonth(),
+        selectedDate.getDate()
+      ));
+
       // Find attendance records for the selected date
-      const selectedDateStr = selectedDate.toISOString().split('T')[0];
       attendance.forEach(record => {
-        const recordDate = new Date(record.date).toISOString().split('T')[0];
-        if (recordDate === selectedDateStr) {
+        const recordDate = new Date(record.date);
+        const recordDateUTC = new Date(Date.UTC(
+          recordDate.getFullYear(),
+          recordDate.getMonth(),
+          recordDate.getDate()
+        ));
+
+        if (recordDateUTC.getTime() === selectedDateUTC.getTime()) {
           newState[record.playerId] = record.present;
         }
       });
@@ -52,16 +64,23 @@ export function AttendanceTracker({ teamId }: { teamId: number }) {
 
   const saveAttendanceMutation = useMutation({
     mutationFn: async () => {
+      // Convert selected date to UTC midnight
+      const dateUTC = new Date(Date.UTC(
+        selectedDate.getFullYear(),
+        selectedDate.getMonth(),
+        selectedDate.getDate()
+      ));
+
       // Collect all attendance records
       const records = Object.entries(attendanceState).map(([playerId, present]) => ({
         playerId: parseInt(playerId),
         teamId,
-        date: selectedDate,
+        date: dateUTC,
         present,
       }));
 
       const res = await apiRequest("POST", `/api/teams/${teamId}/attendance`, {
-        date: selectedDate.toISOString(),
+        date: dateUTC.toISOString(),
         records: records
       });
       return res.json();

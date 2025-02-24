@@ -9,11 +9,21 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { z } from "zod";
+
+const formSchema = z.object({
+  playerId: z.number(),
+  amount: z.string().min(1, "Amount is required"),
+  date: z.string(),
+  notes: z.string().optional(),
+});
+
+type FormData = z.infer<typeof formSchema>;
 
 export function PaymentTracker({ teamId }: { teamId: number }) {
   const { toast } = useToast();
-  const form = useForm({
-    resolver: zodResolver(insertPaymentSchema.omit({ teamId: true })),
+  const form = useForm<FormData>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
       date: format(new Date(), "yyyy-MM-dd"),
       amount: "",
@@ -35,7 +45,7 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
   });
 
   const addPaymentMutation = useMutation({
-    mutationFn: async (data: any) => {
+    mutationFn: async (data: FormData) => {
       console.log("Making payment API request with data:", data);
       const res = await apiRequest("POST", `/api/teams/${teamId}/payments`, {
         ...data,
@@ -127,11 +137,10 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
               </label>
               <Input
                 id="amount"
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="0.00"
                 {...form.register("amount")}
+                type="text"
+                pattern="\d*\.?\d{0,2}"
+                placeholder="0.00"
               />
               {form.formState.errors.amount && (
                 <p className="text-sm text-red-500">

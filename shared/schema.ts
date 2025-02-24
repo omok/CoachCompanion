@@ -1,24 +1,34 @@
-import { pgTable, text, serial, integer, boolean, timestamp, json } from "drizzle-orm/pg-core";
+import { pgTable, varchar, serial, integer, boolean, timestamp, json } from "drizzle-orm/pg-core";
 import { z } from "zod";
+
+// Add session table definition to prevent Drizzle from trying to drop it
+export const session = pgTable("session", {
+  sid: varchar("sid").primaryKey(),
+  sess: json("sess").notNull(),
+  expire: timestamp("expire", { precision: 6 }).notNull(),
+}, (table) => ({
+  // Mark this table to be ignored by Drizzle migrations
+  __ignore: true,
+}));
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
-  role: text("role").notNull(), 
-  name: text("name").notNull(),
+  username: varchar("username").notNull().unique(),
+  password: varchar("password").notNull(),
+  role: varchar("role").notNull(), 
+  name: varchar("name").notNull(),
 });
 
 export const teams = pgTable("teams", {
   id: serial("id").primaryKey(),
-  name: text("name").notNull(),
+  name: varchar("name").notNull(),
   coachId: integer("coach_id").notNull(),
-  description: text("description"),
+  description: varchar("description"),
 });
 
 export const players = pgTable("players", {
   id: serial("id").primaryKey(),
-  name: text("name").notNull(),
+  name: varchar("name").notNull(),
   teamId: integer("team_id").notNull(),
   parentId: integer("parent_id").notNull(),
   active: boolean("active").notNull().default(true),
@@ -37,39 +47,39 @@ export const practiceNotes = pgTable("practice_notes", {
   teamId: integer("team_id").notNull(),
   coachId: integer("coach_id").notNull(),
   practiceDate: timestamp("practice_date").notNull(),
-  notes: text("notes").notNull(),
+  notes: varchar("notes").notNull(),
   playerIds: integer("player_ids").array(),
 });
 
 export const insertUserSchema = z.object({
-    id: z.number().optional(),
-    username: z.string(),
-    password: z.string(),
-    role: z.string(),
-    name: z.string(),
+  id: z.number().optional(),
+  username: z.string(),
+  password: z.string(),
+  role: z.string(),
+  name: z.string(),
 })
 
 export const insertTeamSchema = z.object({
-    id: z.number().optional(),
-    name: z.string(),
-    coachId: z.number(),
-    description: z.string().optional(),
+  id: z.number().optional(),
+  name: z.string(),
+  coachId: z.number(),
+  description: z.string().optional(),
 })
 
 export const insertPlayerSchema = z.object({
-    id: z.number().optional(),
-    name: z.string(),
-    teamId: z.number(),
-    parentId: z.number(),
-    active: z.boolean().optional(),
+  id: z.number().optional(),
+  name: z.string(),
+  teamId: z.number(),
+  parentId: z.number(),
+  active: z.boolean().optional(),
 })
 
 export const insertAttendanceSchema = z.object({
-    id: z.number().optional(),
-    playerId: z.number(),
-    teamId: z.number(),
-    date: z.string().transform(date => new Date(date)),
-    present: z.boolean(),
+  id: z.number().optional(),
+  playerId: z.number(),
+  teamId: z.number(),
+  date: z.string().transform(date => new Date(date)),
+  present: z.boolean(),
 })
 
 export const insertPracticeNoteSchema = z.object({

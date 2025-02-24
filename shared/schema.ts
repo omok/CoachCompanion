@@ -92,6 +92,7 @@ export const insertAttendanceSchema = z.object({
   present: z.boolean(),
 });
 
+// Update practice notes schema to ensure proper validation
 export const insertPracticeNoteSchema = z.object({
   teamId: z.number(),
   coachId: z.number(),

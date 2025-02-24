@@ -37,9 +37,9 @@ export function AttendanceTracker({ teamId }: { teamId: number }) {
       });
 
       // Find attendance records for the selected date
-      const selectedDateStr = formatDateToLocalString(selectedDate);
+      const selectedDateStr = formatLocalDate(selectedDate);
       attendance.forEach(record => {
-        const recordDateStr = formatDateToLocalString(new Date(record.date));
+        const recordDateStr = formatLocalDate(new Date(record.date));
         if (recordDateStr === selectedDateStr) {
           newState[record.playerId] = record.present;
         }
@@ -50,25 +50,28 @@ export function AttendanceTracker({ teamId }: { teamId: number }) {
   }, [selectedDate, attendance, players]);
 
   // Helper function to format date to YYYY-MM-DD in local time
-  function formatDateToLocalString(date: Date): string {
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  function formatLocalDate(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   const saveAttendanceMutation = useMutation({
     mutationFn: async () => {
-      // Format date as YYYY-MM-DD in local time
-      const dateStr = formatDateToLocalString(selectedDate);
+      // Create a new Date object at midnight of the selected date
+      const localDate = new Date(formatLocalDate(selectedDate));
 
       // Collect all attendance records
       const records = Object.entries(attendanceState).map(([playerId, present]) => ({
         playerId: parseInt(playerId),
         teamId,
-        date: dateStr,
+        date: localDate,
         present,
       }));
 
       const res = await apiRequest("POST", `/api/teams/${teamId}/attendance`, {
-        date: dateStr,
+        date: localDate.toISOString(),
         records: records
       });
       return res.json();

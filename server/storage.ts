@@ -112,7 +112,7 @@ export class MemStorage implements IStorage {
   }
 
   async updateAttendance(teamId: number, date: Date, records: InsertAttendance[]): Promise<Attendance[]> {
-    // Get the date string for comparison (YYYY-MM-DD)
+    // Convert the input date to a local date string for comparison
     const dateStr = new Date(date).toLocaleDateString('en-CA'); // Formats as YYYY-MM-DD
 
     // Remove existing records for this date and team
@@ -130,7 +130,8 @@ export class MemStorage implements IStorage {
       const newRecord: Attendance = {
         ...record,
         id,
-        date: new Date(record.date) // Store date as is, without timezone conversion
+        // Store the date as a local date at midnight
+        date: new Date(dateStr)
       };
       this.attendance.set(id, newRecord);
       newRecords.push(newRecord);

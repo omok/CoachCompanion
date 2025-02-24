@@ -36,6 +36,11 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
     }
   });
 
+  // Fetch current user
+  const { data: user } = useQuery({
+    queryKey: ['/api/user'],
+  });
+
   // Fetch practice notes
   const { data: notes, isLoading: isLoadingNotes } = useQuery<PracticeNote[]>({
     queryKey: [`/api/teams/${teamId}/practice-notes`],
@@ -65,12 +70,23 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
 
   // Update form when date changes
   useEffect(() => {
-    const presentPlayers = getPresentPlayers(selectedDate);
-    form.setValue('playerIds', presentPlayers);
-  }, [selectedDate, attendance, form]);
+    const dateStr = format(selectedDate, 'yyyy-MM-dd');
+    const existingNote = notes?.find(note => 
+      format(new Date(note.practiceDate), 'yyyy-MM-dd') === dateStr
+    );
+
+    form.reset({
+      notes: existingNote?.notes || "",
+      playerIds: getPresentPlayers(selectedDate)
+    });
+  }, [selectedDate, notes, attendance, form]);
 
   const createNoteMutation = useMutation({
     mutationFn: async (data: { notes: string }) => {
+      if (!user?.id) {
+        throw new Error("You must be logged in to create practice notes");
+      }
+
       const presentPlayers = getPresentPlayers(selectedDate);
 
       if (presentPlayers.length === 0) {
@@ -81,6 +97,8 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
         "POST",
         `/api/teams/${teamId}/practice-notes`,
         {
+          teamId: teamId,
+          coachId: user.id,
           notes: data.notes,
           playerIds: presentPlayers,
           practiceDate: selectedDate.toISOString(),
@@ -95,12 +113,14 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/teams/${teamId}/practice-notes`] });
+      queryClient.invalidateQueries({ 
+        queryKey: [`/api/teams/${teamId}/practice-notes`] 
+      });
       toast({
         title: "Success",
         description: "Practice note saved successfully",
       });
-      form.reset();
+      // Don't reset the form here since we want to keep the current note visible
     },
     onError: (error: Error) => {
       toast({

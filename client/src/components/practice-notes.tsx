@@ -26,7 +26,6 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterPlayers, setFilterPlayers] = useState<number[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [presentPlayerIds, setPresentPlayerIds] = useState<number[]>([]);
 
   const form = useForm({
     resolver: zodResolver(insertPracticeNoteSchema.omit({ teamId: true, coachId: true })),
@@ -48,238 +47,198 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
     queryKey: [`/api/teams/${teamId}/attendance`],
   });
 
-  // Helper function to format date to YYYY-MM-DD
-  function formatDateString(date: Date): string {
-    return date.toLocaleDateString('en-CA'); // Returns YYYY-MM-DD
-  }
+  // Get present players for selected date
+  const getPresentPlayers = (date: Date) => {
+    if (!attendance) return [];
+    const dateStr = format(date, 'yyyy-MM-dd');
+    return attendance
+      .filter(record => {
+        const recordDate = format(new Date(record.date), 'yyyy-MM-dd');
+        return recordDate === dateStr && record.present;
+      })
+      .map(record => record.playerId);
+  };
 
-  // Update present players when date changes
+  // Update form when date changes
   useEffect(() => {
-    if (attendance) {
-      const selectedDateStr = formatDateString(selectedDate);
-      const presentPlayers = attendance
-        .filter(record => {
-          const recordDateStr = formatDateString(new Date(record.date));
-          return recordDateStr === selectedDateStr && record.present;
-        })
-        .map(record => record.playerId);
+    const presentPlayers = getPresentPlayers(selectedDate);
+    const dateStr = format(selectedDate, 'yyyy-MM-dd');
 
-      setPresentPlayerIds(presentPlayers);
-    }
-  }, [selectedDate, attendance]);
+    const existingNote = notes?.find(note => 
+      format(new Date(note.practiceDate), 'yyyy-MM-dd') === dateStr
+    );
 
-  // Load existing note when date changes
-  useEffect(() => {
-    if (notes) {
-      const selectedDateStr = formatDateString(selectedDate);
-      const existingNote = notes.find(note => {
-        const noteDateStr = formatDateString(new Date(note.practiceDate));
-        return noteDateStr === selectedDateStr;
-      });
+    form.reset({
+      notes: existingNote?.notes || "",
+      playerIds: presentPlayers
+    });
+  }, [selectedDate, notes, attendance, form]);
 
-      if (existingNote) {
-        form.reset({
-          notes: existingNote.notes,
-          playerIds: existingNote.playerIds || []
-        });
-      } else {
-        form.reset({
-          notes: "",
-          playerIds: []
-        });
-      }
-    }
-  }, [selectedDate, notes, form]);
-
-  // Update the mutation to log everything
   const createNoteMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const dateStr = formatDateString(selectedDate);
-      const practiceDate = new Date(`${dateStr}T12:00:00.000Z`);
+    mutationFn: async (data: { notes: string }) => {
+      const presentPlayers = getPresentPlayers(selectedDate);
 
-      try {
-        const requestData = {
-          notes: data.notes,
-          playerIds: presentPlayerIds,
-          practiceDate: practiceDate.toISOString(),
-        };
-
-        console.log('Submitting practice note:', requestData);
-
-        const response = await apiRequest("POST", `/api/teams/${teamId}/practice-notes`, requestData);
-        const responseText = await response.text();
-        console.log('Raw response:', responseText);
-
-        if (!response.ok) {
-          try {
-            const error = JSON.parse(responseText);
-            throw new Error(error.error || 'Failed to save practice note');
-          } catch {
-            throw new Error(`Failed to save practice note: ${responseText}`);
-          }
-        }
-
-        const result = JSON.parse(responseText);
-        console.log('Save successful:', result);
-        return result;
-      } catch (error) {
-        console.error('Error saving practice note:', error);
-        throw error;
+      if (presentPlayers.length === 0) {
+        throw new Error("No players marked as present for this date");
       }
+
+      const response = await apiRequest(
+        "POST", 
+        `/api/teams/${teamId}/practice-notes`,
+        {
+          notes: data.notes,
+          playerIds: presentPlayers,
+          practiceDate: selectedDate.toISOString(),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to save practice note");
+      }
+
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/teams/${teamId}/practice-notes`] });
       toast({
-        title: "Practice note saved",
-        description: "Your practice note has been saved successfully.",
+        title: "Success",
+        description: "Practice note saved successfully",
       });
     },
     onError: (error: Error) => {
-      console.error('Mutation error:', error);
       toast({
-        title: "Failed to save note",
+        title: "Error",
         description: error.message,
         variant: "destructive",
       });
-    }
+    },
   });
 
   const filteredNotes = notes?.filter((note) => {
     const matchesSearch = note.notes.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesPlayers = filterPlayers.length === 0 ||
+    const matchesPlayers = filterPlayers.length === 0 || 
       filterPlayers.every(playerId => note.playerIds?.includes(playerId));
     return matchesSearch && matchesPlayers;
   });
 
   if (isLoadingNotes || isLoadingPlayers || isLoadingAttendance) {
     return (
-      <div className="flex justify-center">
-        <Loader2 className="h-6 w-6 animate-spin" />
+      <div className="flex justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
   }
 
-  const getPlayerName = (playerId: number) => {
-    return players?.find(p => p.id === playerId)?.name;
-  };
+  const presentPlayers = getPresentPlayers(selectedDate);
 
   return (
     <div className="grid md:grid-cols-2 gap-6">
-      {/* New Practice Note Form */}
-      <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>New Practice Note</CardTitle>
-            <CardDescription>Record notes from today's practice session</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form
-              onSubmit={form.handleSubmit((data) => createNoteMutation.mutate(data))}
-              className="space-y-4"
-            >
-              <div className="space-y-2">
-                <Label>Practice Date</Label>
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={(date) => date && setSelectedDate(date)}
-                  className="rounded-md border"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Players Present</Label>
-                <div className="flex gap-2 flex-wrap">
-                  {presentPlayerIds.map((playerId) => (
-                    <Badge key={playerId} variant="secondary">
-                      <Tag className="h-3 w-3 mr-1" />
-                      {players?.find(p => p.id === playerId)?.name}
-                    </Badge>
-                  ))}
-                </div>
-                {presentPlayerIds.length === 0 && (
-                  <p className="text-sm text-muted-foreground">
-                    No players marked as present for this date. Mark players as present in the Attendance tab first.
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="notes">Practice Notes</Label>
-                <Textarea
-                  id="notes"
-                  {...form.register("notes")}
-                  placeholder="Enter your practice notes here..."
-                  className="min-h-[100px]"
-                />
-              </div>
-
-              <Button type="submit" disabled={createNoteMutation.isPending || presentPlayerIds.length === 0}>
-                {createNoteMutation.isPending ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  'Save Practice Note'
-                )}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Practice Notes List */}
-      <div className="space-y-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Practice Notes History</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search notes..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-8"
-                  />
-                </div>
-              </div>
+      {/* Practice Note Form */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Practice Notes</CardTitle>
+          <CardDescription>Record notes for today's practice session</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={form.handleSubmit((data) => createNoteMutation.mutate(data))} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Practice Date</Label>
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={(date) => date && setSelectedDate(date)}
+                className="rounded-md border"
+              />
             </div>
 
-            <div className="space-y-4">
-              {filteredNotes?.map((note) => (
-                <Card key={note.id}>
-                  <CardHeader>
-                    <CardTitle className="text-sm text-muted-foreground">
-                      {format(new Date(note.practiceDate), "MMMM d, yyyy")}
-                    </CardTitle>
-                    <div className="flex gap-1 flex-wrap">
-                      {note.playerIds?.map((playerId) => (
-                        <Badge key={playerId} variant="outline">
-                          <Tag className="h-3 w-3 mr-1" />
-                          {players?.find(p => p.id === playerId)?.name}
-                        </Badge>
-                      ))}
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="whitespace-pre-wrap">{note.notes}</p>
-                  </CardContent>
-                </Card>
-              ))}
-              {(!filteredNotes || filteredNotes.length === 0) && (
-                <div className="text-center text-muted-foreground py-4">
-                  No practice notes found
-                </div>
+            <div className="space-y-2">
+              <Label>Players Present</Label>
+              <div className="flex gap-2 flex-wrap">
+                {presentPlayers.map((playerId) => (
+                  <Badge key={playerId} variant="secondary">
+                    {players?.find(p => p.id === playerId)?.name}
+                  </Badge>
+                ))}
+              </div>
+              {presentPlayers.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  No players marked as present for this date
+                </p>
               )}
             </div>
-          </CardContent>
-        </Card>
-      </div>
+
+            <div className="space-y-2">
+              <Label>Notes</Label>
+              <Textarea
+                {...form.register("notes")}
+                placeholder="Enter practice notes..."
+                className="min-h-[150px]"
+              />
+            </div>
+
+            <Button 
+              type="submit" 
+              disabled={createNoteMutation.isPending || presentPlayers.length === 0}
+            >
+              {createNoteMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save Notes'
+              )}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* Practice Notes History */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Practice History</CardTitle>
+          <div className="mt-2">
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search notes..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {filteredNotes?.map((note) => (
+              <Card key={note.id}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm text-muted-foreground">
+                    {format(new Date(note.practiceDate), "MMMM d, yyyy")}
+                  </CardTitle>
+                  <div className="flex gap-1 flex-wrap">
+                    {note.playerIds?.map((playerId) => (
+                      <Badge key={playerId} variant="outline" className="text-xs">
+                        {players?.find(p => p.id === playerId)?.name}
+                      </Badge>
+                    ))}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="whitespace-pre-wrap text-sm">{note.notes}</p>
+                </CardContent>
+              </Card>
+            ))}
+            {(!filteredNotes || filteredNotes.length === 0) && (
+              <div className="text-center text-muted-foreground py-4">
+                No practice notes found
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

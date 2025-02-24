@@ -103,13 +103,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!team || team.coachId !== req.user.id) return res.sendStatus(403);
 
     try {
+      console.log('Creating practice note with data:', req.body);
       const parsed = insertPracticeNoteSchema.parse({
         ...req.body,
         teamId,
         coachId: req.user.id,
         practiceDate: new Date(req.body.practiceDate)
       });
+
+      console.log('Parsed practice note data:', parsed);
       const note = await storage.createPracticeNote(parsed);
+      console.log('Created practice note:', note);
       res.status(201).json(note);
     } catch (error) {
       console.error('Error saving practice note:', error);

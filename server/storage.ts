@@ -144,33 +144,59 @@ export class DatabaseStorage implements IStorage {
     const dateStr = new Date(note.practiceDate).toLocaleDateString('en-CA');
     const practiceDate = new Date(`${dateStr}T12:00:00.000Z`);
 
-    const [newNote] = await db.insert(practiceNotes).values({
+    console.log('Creating practice note:', {
       ...note,
-      practiceDate
-    }).returning();
+      practiceDate,
+      practiceDate_iso: practiceDate.toISOString()
+    });
 
-    return {
-      ...newNote,
-      practiceDate: new Date(
-        new Date(newNote.practiceDate).toLocaleDateString('en-CA') + 'T12:00:00.000Z'
-      )
-    };
+    try {
+      const [newNote] = await db
+        .insert(practiceNotes)
+        .values({
+          teamId: note.teamId,
+          coachId: note.coachId,
+          practiceDate: practiceDate,
+          notes: note.notes,
+          playerIds: note.playerIds || []
+        })
+        .returning();
+
+      console.log('Created practice note:', newNote);
+
+      return {
+        ...newNote,
+        practiceDate: new Date(
+          new Date(newNote.practiceDate).toLocaleDateString('en-CA') + 'T12:00:00.000Z'
+        )
+      };
+    } catch (error) {
+      console.error('Error creating practice note:', error);
+      throw error;
+    }
   }
 
   async getPracticeNotesByTeamId(teamId: number): Promise<PracticeNote[]> {
-    const notes = await db
-      .select()
-      .from(practiceNotes)
-      .where(eq(practiceNotes.teamId, teamId))
-      .orderBy(practiceNotes.practiceDate);
+    try {
+      const notes = await db
+        .select()
+        .from(practiceNotes)
+        .where(eq(practiceNotes.teamId, teamId))
+        .orderBy(practiceNotes.practiceDate);
 
-    // Ensure dates are handled consistently
-    return notes.map(note => ({
-      ...note,
-      practiceDate: new Date(
-        new Date(note.practiceDate).toLocaleDateString('en-CA') + 'T12:00:00.000Z'
-      )
-    }));
+      console.log('Retrieved practice notes:', notes);
+
+      // Ensure dates are handled consistently
+      return notes.map(note => ({
+        ...note,
+        practiceDate: new Date(
+          new Date(note.practiceDate).toLocaleDateString('en-CA') + 'T12:00:00.000Z'
+        )
+      }));
+    } catch (error) {
+      console.error('Error getting practice notes:', error);
+      throw error;
+    }
   }
 }
 

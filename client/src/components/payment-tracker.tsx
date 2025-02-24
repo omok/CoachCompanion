@@ -67,7 +67,6 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
       const response = await apiRequest("POST", `/api/teams/${teamId}/payments`, {
         ...data,
         teamId,
-        amount: Number(data.amount),
       });
       if (!response.ok) {
         const error = await response.text();
@@ -114,6 +113,7 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
   if (!players) return null;
 
   const onSubmit = (data: PaymentFormData) => {
+    console.log("Submitting payment:", data); 
     addPaymentMutation.mutate(data);
   };
 

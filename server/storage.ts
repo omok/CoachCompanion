@@ -206,7 +206,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createPayment(payment: InsertPayment): Promise<Payment> {
-    const [newPayment] = await db.insert(payments).values(payment).returning();
+    const [newPayment] = await db
+      .insert(payments)
+      .values({
+        ...payment,
+        amount: payment.amount.toString() // Convert number to string for numeric column
+      })
+      .returning();
     return newPayment;
   }
 
@@ -230,12 +236,11 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .select({
         playerId: payments.playerId,
-        total: sum(payments.amount).as('total'),
+        total: sum(payments.amount),
       })
       .from(payments)
       .where(eq(payments.teamId, teamId))
-      .groupBy(payments.playerId)
-      .orderBy(sum(payments.amount), 'desc');
+      .groupBy(payments.playerId);
 
     return result.map(row => ({
       playerId: row.playerId,

@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth, initializeTestData } from "./auth";
 import { storage } from "./storage";
-import { insertTeamSchema, insertPlayerSchema, insertAttendanceSchema, insertPracticeNoteSchema } from "@shared/schema";
+import { insertTeamSchema, insertPlayerSchema, insertAttendanceSchema, insertPracticeNoteSchema, insertPaymentSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
@@ -103,12 +103,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!team || team.coachId !== req.user.id) return res.sendStatus(403);
 
     try {
-      console.log('Creating practice note with data:', {
-        ...req.body,
-        teamId,
-        coachId: req.user.id
-      });
-
       const requestData = {
         ...req.body,
         teamId,
@@ -116,12 +110,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         practiceDate: new Date(req.body.practiceDate)
       };
 
-      console.log('Validating request data:', requestData);
       const parsed = insertPracticeNoteSchema.parse(requestData);
-      console.log('Validated request data:', parsed);
-
       const note = await storage.createPracticeNote(parsed);
-      console.log('Created practice note:', note);
       res.status(201).json(note);
     } catch (error) {
       console.error('Error saving practice note:', error);
@@ -138,6 +128,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     const notes = await storage.getPracticeNotesByTeamId(teamId);
     res.json(notes);
+  });
+
+  // Payments
+  app.post("/api/teams/:teamId/payments", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "coach") {
+      return res.sendStatus(401);
+    }
+    const teamId = parseInt(req.params.teamId);
+    const team = await storage.getTeam(teamId);
+    if (!team || team.coachId !== req.user.id) return res.sendStatus(403);
+
+    try {
+      const parsed = insertPaymentSchema.parse({
+        ...req.body,
+        teamId,
+      });
+      const payment = await storage.createPayment(parsed);
+      res.status(201).json(payment);
+    } catch (error) {
+      console.error('Error creating payment:', error);
+      res.status(400).json({ error: 'Invalid payment data' });
+    }
+  });
+
+  app.get("/api/teams/:teamId/payments", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const teamId = parseInt(req.params.teamId);
+    const team = await storage.getTeam(teamId);
+    if (!team || (req.user.role === "coach" && team.coachId !== req.user.id)) {
+      return res.sendStatus(403);
+    }
+    const payments = await storage.getPaymentsByTeamId(teamId);
+    res.json(payments);
+  });
+
+  app.get("/api/teams/:teamId/payments/totals", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const teamId = parseInt(req.params.teamId);
+    const team = await storage.getTeam(teamId);
+    if (!team || (req.user.role === "coach" && team.coachId !== req.user.id)) {
+      return res.sendStatus(403);
+    }
+    const totals = await storage.getPaymentTotalsByTeam(teamId);
+    res.json(totals);
   });
 
   const httpServer = createServer(app);

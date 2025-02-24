@@ -109,14 +109,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         coachId: req.user.id
       });
 
-      const parsed = insertPracticeNoteSchema.parse({
+      const requestData = {
         ...req.body,
         teamId,
         coachId: req.user.id,
         practiceDate: new Date(req.body.practiceDate)
-      });
+      };
 
-      console.log('Parsed practice note data:', parsed);
+      console.log('Validating request data:', requestData);
+      const parsed = insertPracticeNoteSchema.parse(requestData);
+      console.log('Validated request data:', parsed);
+
       const note = await storage.createPracticeNote(parsed);
       console.log('Created practice note:', note);
       res.status(201).json(note);

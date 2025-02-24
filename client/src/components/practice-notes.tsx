@@ -91,6 +91,7 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
     }
   }, [selectedDate, notes, form]);
 
+  // Update the mutation to log everything
   const createNoteMutation = useMutation({
     mutationFn: async (data: any) => {
       const dateStr = formatDateString(selectedDate);
@@ -106,13 +107,19 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
         console.log('Submitting practice note:', requestData);
 
         const response = await apiRequest("POST", `/api/teams/${teamId}/practice-notes`, requestData);
+        const responseText = await response.text();
+        console.log('Raw response:', responseText);
 
         if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || 'Failed to save practice note');
+          try {
+            const error = JSON.parse(responseText);
+            throw new Error(error.error || 'Failed to save practice note');
+          } catch {
+            throw new Error(`Failed to save practice note: ${responseText}`);
+          }
         }
 
-        const result = await response.json();
+        const result = JSON.parse(responseText);
         console.log('Save successful:', result);
         return result;
       } catch (error) {
@@ -128,6 +135,7 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
       });
     },
     onError: (error: Error) => {
+      console.error('Mutation error:', error);
       toast({
         title: "Failed to save note",
         description: error.message,
@@ -138,7 +146,7 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
 
   const filteredNotes = notes?.filter((note) => {
     const matchesSearch = note.notes.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesPlayers = filterPlayers.length === 0 || 
+    const matchesPlayers = filterPlayers.length === 0 ||
       filterPlayers.every(playerId => note.playerIds?.includes(playerId));
     return matchesSearch && matchesPlayers;
   });

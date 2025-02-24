@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { TeamRoster } from "@/components/team-roster";
 import { AttendanceTracker } from "@/components/attendance-tracker";
 import { PracticeNotes } from "@/components/practice-notes";
+import { PaymentTracker } from "@/components/payment-tracker";
 import { useQuery } from "@tanstack/react-query";
 import { Team } from "@shared/schema";
 import {
@@ -12,6 +13,7 @@ import {
   Users,
   CalendarCheck,
   Book,
+  DollarSign,
   Loader2,
 } from "lucide-react";
 import { CreateTeamDialog } from "@/components/create-team-dialog";
@@ -19,7 +21,7 @@ import { CreateTeamDialog } from "@/components/create-team-dialog";
 export default function Dashboard() {
   const { user, logoutMutation } = useAuth();
   const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<"roster" | "attendance" | "notes">("roster");
+  const [activeTab, setActiveTab] = useState<"roster" | "attendance" | "notes" | "payments">("roster");
 
   const { data: teams, isLoading: isLoadingTeams } = useQuery<Team[]>({
     queryKey: ["/api/teams"],
@@ -87,6 +89,16 @@ export default function Dashboard() {
                 <Book className="h-4 w-4 mr-2" />
                 Session Notes
               </Button>
+              {user?.role === "coach" && (
+                <Button
+                  variant={activeTab === "payments" ? "secondary" : "ghost"}
+                  className="w-full justify-start"
+                  onClick={() => setActiveTab("payments")}
+                >
+                  <DollarSign className="h-4 w-4 mr-2" />
+                  Payments
+                </Button>
+              )}
             </nav>
           </div>
         )}
@@ -116,6 +128,9 @@ export default function Dashboard() {
             {activeTab === "roster" && <TeamRoster teamId={selectedTeamId} />}
             {activeTab === "attendance" && <AttendanceTracker teamId={selectedTeamId} />}
             {activeTab === "notes" && <PracticeNotes teamId={selectedTeamId} />}
+            {activeTab === "payments" && user?.role === "coach" && (
+              <PaymentTracker teamId={selectedTeamId} />
+            )}
           </>
         )}
       </div>

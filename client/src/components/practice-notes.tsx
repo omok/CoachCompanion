@@ -29,9 +29,11 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
   const [presentPlayerIds, setPresentPlayerIds] = useState<number[]>([]);
 
   const form = useForm({
-    resolver: zodResolver(
-      insertPracticeNoteSchema.omit({ teamId: true, coachId: true })
-    ),
+    resolver: zodResolver(insertPracticeNoteSchema.omit({ teamId: true, coachId: true })),
+    defaultValues: {
+      notes: "",
+      playerIds: [] as number[]
+    }
   });
 
   const { data: notes, isLoading: isLoadingNotes } = useQuery<PracticeNote[]>({
@@ -70,42 +72,53 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
   useEffect(() => {
     if (notes) {
       const selectedDateStr = formatDateString(selectedDate);
-      console.log('Looking for notes on:', selectedDateStr);
-      console.log('Available notes:', notes.map(n => ({ 
-        date: formatDateString(new Date(n.practiceDate)), 
-        notes: n.notes 
-      })));
-
       const existingNote = notes.find(note => {
         const noteDateStr = formatDateString(new Date(note.practiceDate));
         return noteDateStr === selectedDateStr;
       });
 
       if (existingNote) {
-        console.log('Found note:', existingNote);
-        form.setValue("notes", existingNote.notes);
+        form.reset({
+          notes: existingNote.notes,
+          playerIds: existingNote.playerIds || []
+        });
       } else {
-        console.log('No note found for:', selectedDateStr);
-        form.setValue("notes", "");
+        form.reset({
+          notes: "",
+          playerIds: []
+        });
       }
     }
   }, [selectedDate, notes, form]);
 
   const createNoteMutation = useMutation({
     mutationFn: async (data: any) => {
-      // Get the date string in YYYY-MM-DD format
       const dateStr = formatDateString(selectedDate);
-      // Create date at noon UTC to avoid timezone issues
       const practiceDate = new Date(`${dateStr}T12:00:00.000Z`);
 
-      console.log('Saving note with date:', dateStr, practiceDate.toISOString());
+      try {
+        const requestData = {
+          notes: data.notes,
+          playerIds: presentPlayerIds,
+          practiceDate: practiceDate.toISOString(),
+        };
 
-      const res = await apiRequest("POST", `/api/teams/${teamId}/practice-notes`, {
-        ...data,
-        playerIds: presentPlayerIds,
-        practiceDate: practiceDate.toISOString(),
-      });
-      return res.json();
+        console.log('Submitting practice note:', requestData);
+
+        const response = await apiRequest("POST", `/api/teams/${teamId}/practice-notes`, requestData);
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Failed to save practice note');
+        }
+
+        const result = await response.json();
+        console.log('Save successful:', result);
+        return result;
+      } catch (error) {
+        console.error('Error saving practice note:', error);
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/teams/${teamId}/practice-notes`] });
@@ -114,6 +127,13 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
         description: "Your practice note has been saved successfully.",
       });
     },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to save note",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   });
 
   const filteredNotes = notes?.filter((note) => {

@@ -1,12 +1,11 @@
 import { pgTable, text, serial, integer, boolean, timestamp, json } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
-  role: text("role").notNull(), // 'coach' or 'parent'
+  role: text("role").notNull(), 
   name: text("name").notNull(),
 });
 
@@ -39,14 +38,47 @@ export const practiceNotes = pgTable("practice_notes", {
   coachId: integer("coach_id").notNull(),
   practiceDate: timestamp("practice_date").notNull(),
   notes: text("notes").notNull(),
-  playerIds: integer("player_ids").array(), // Store player IDs instead of tags
+  playerIds: integer("player_ids").array(),
 });
 
-export const insertUserSchema = createInsertSchema(users);
-export const insertTeamSchema = createInsertSchema(teams);
-export const insertPlayerSchema = createInsertSchema(players);
-export const insertAttendanceSchema = createInsertSchema(attendance);
-export const insertPracticeNoteSchema = createInsertSchema(practiceNotes);
+export const insertUserSchema = z.object({
+    id: z.number().optional(),
+    username: z.string(),
+    password: z.string(),
+    role: z.string(),
+    name: z.string(),
+})
+
+export const insertTeamSchema = z.object({
+    id: z.number().optional(),
+    name: z.string(),
+    coachId: z.number(),
+    description: z.string().optional(),
+})
+
+export const insertPlayerSchema = z.object({
+    id: z.number().optional(),
+    name: z.string(),
+    teamId: z.number(),
+    parentId: z.number(),
+    active: z.boolean().optional(),
+})
+
+export const insertAttendanceSchema = z.object({
+    id: z.number().optional(),
+    playerId: z.number(),
+    teamId: z.number(),
+    date: z.string().transform(date => new Date(date)),
+    present: z.boolean(),
+})
+
+export const insertPracticeNoteSchema = z.object({
+  teamId: z.number(),
+  coachId: z.number(),
+  practiceDate: z.string().transform(date => new Date(date)),
+  notes: z.string(),
+  playerIds: z.number().array().default([])
+});
 
 export type User = typeof users.$inferSelect;
 export type Team = typeof teams.$inferSelect;

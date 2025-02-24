@@ -103,7 +103,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!team || team.coachId !== req.user.id) return res.sendStatus(403);
 
     try {
-      console.log('Creating practice note with data:', req.body);
+      console.log('Creating practice note with data:', {
+        ...req.body,
+        teamId,
+        coachId: req.user.id
+      });
+
       const parsed = insertPracticeNoteSchema.parse({
         ...req.body,
         teamId,

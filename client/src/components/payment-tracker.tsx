@@ -92,14 +92,10 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
         </CardHeader>
         <CardContent>
           <form 
-            onSubmit={(e) => {
-              e.preventDefault();
-              console.log("Form submitted, current form state:", form.getValues());
-              form.handleSubmit((data) => {
-                console.log("Form data being sent to mutation:", data);
-                addPaymentMutation.mutate(data);
-              })(e);
-            }} 
+            onSubmit={form.handleSubmit((data) => {
+              console.log("Form submitted with data:", data);
+              addPaymentMutation.mutate(data);
+            })} 
             className="space-y-4"
           >
             <div className="space-y-2">

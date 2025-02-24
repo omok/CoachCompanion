@@ -2,15 +2,6 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Payment, Player, insertPaymentSchema } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -121,103 +112,97 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
           <CardDescription>Record a new payment for a player</CardDescription>
         </CardHeader>
         <CardContent>
-          <Form {...form}>
-            <form 
-              onSubmit={form.handleSubmit((data) => {
-                console.log("Form submitted with data:", data);
+          <form 
+            onSubmit={(e) => {
+              e.preventDefault();
+              console.log("Form submitted, current form state:", form.getValues());
+              form.handleSubmit((data) => {
+                console.log("Form data being sent to mutation:", data);
                 addPaymentMutation.mutate(data);
-              })} 
-              className="space-y-4"
-            >
-              <FormField
-                control={form.control}
-                name="playerId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Player</FormLabel>
-                    <FormControl>
-                      <select
-                        className="w-full rounded-md border p-2"
-                        {...field}
-                        value={field.value || ""}
-                        onChange={(e) =>
-                          field.onChange(Number(e.target.value))
-                        }
-                      >
-                        <option value="">Select a player</option>
-                        {players.map((player) => (
-                          <option key={player.id} value={player.id}>
-                            {player.name}
-                          </option>
-                        ))}
-                      </select>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="amount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Amount ($)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder="0.00"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormDescription>Enter the payment amount (e.g., 10.00)</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="date"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Date</FormLabel>
-                    <FormControl>
-                      <Input type="date" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="notes"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Notes (Optional)</FormLabel>
-                    <FormControl>
-                      <Input {...field} placeholder="Payment notes..." />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <Button
-                type="submit"
-                disabled={addPaymentMutation.isPending}
-                className="w-full"
+              })(e);
+            }} 
+            className="space-y-4"
+          >
+            <div className="space-y-2">
+              <label htmlFor="playerId" className="text-sm font-medium">
+                Player
+              </label>
+              <select
+                id="playerId"
+                {...form.register("playerId", { valueAsNumber: true })}
+                className="w-full rounded-md border p-2"
               >
-                {addPaymentMutation.isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : null}
-                Add Payment
-              </Button>
-            </form>
-          </Form>
+                <option value="">Select a player</option>
+                {players.map((player) => (
+                  <option key={player.id} value={player.id}>
+                    {player.name}
+                  </option>
+                ))}
+              </select>
+              {form.formState.errors.playerId && (
+                <p className="text-sm text-red-500">
+                  {form.formState.errors.playerId.message}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="amount" className="text-sm font-medium">
+                Amount ($)
+              </label>
+              <Input
+                id="amount"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="0.00"
+                {...form.register("amount")}
+              />
+              {form.formState.errors.amount && (
+                <p className="text-sm text-red-500">
+                  {form.formState.errors.amount.message}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="date" className="text-sm font-medium">
+                Date
+              </label>
+              <Input 
+                id="date"
+                type="date" 
+                {...form.register("date")} 
+              />
+              {form.formState.errors.date && (
+                <p className="text-sm text-red-500">
+                  {form.formState.errors.date.message}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="notes" className="text-sm font-medium">
+                Notes (Optional)
+              </label>
+              <Input
+                id="notes"
+                {...form.register("notes")}
+                placeholder="Payment notes..."
+              />
+            </div>
+
+            <Button
+              type="submit"
+              disabled={addPaymentMutation.isPending}
+              className="w-full"
+            >
+              {addPaymentMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              Add Payment
+            </Button>
+          </form>
         </CardContent>
       </Card>
 

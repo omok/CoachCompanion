@@ -148,11 +148,29 @@ export class DatabaseStorage implements IStorage {
       ...note,
       practiceDate
     }).returning();
-    return newNote;
+
+    return {
+      ...newNote,
+      practiceDate: new Date(
+        new Date(newNote.practiceDate).toLocaleDateString('en-CA') + 'T12:00:00.000Z'
+      )
+    };
   }
 
   async getPracticeNotesByTeamId(teamId: number): Promise<PracticeNote[]> {
-    return await db.select().from(practiceNotes).where(eq(practiceNotes.teamId, teamId));
+    const notes = await db
+      .select()
+      .from(practiceNotes)
+      .where(eq(practiceNotes.teamId, teamId))
+      .orderBy(practiceNotes.practiceDate);
+
+    // Ensure dates are handled consistently
+    return notes.map(note => ({
+      ...note,
+      practiceDate: new Date(
+        new Date(note.practiceDate).toLocaleDateString('en-CA') + 'T12:00:00.000Z'
+      )
+    }));
   }
 }
 

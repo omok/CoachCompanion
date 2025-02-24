@@ -70,14 +70,22 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
   useEffect(() => {
     if (notes) {
       const selectedDateStr = formatDateString(selectedDate);
+      console.log('Looking for notes on:', selectedDateStr);
+      console.log('Available notes:', notes.map(n => ({ 
+        date: formatDateString(new Date(n.practiceDate)), 
+        notes: n.notes 
+      })));
+
       const existingNote = notes.find(note => {
         const noteDateStr = formatDateString(new Date(note.practiceDate));
         return noteDateStr === selectedDateStr;
       });
 
       if (existingNote) {
+        console.log('Found note:', existingNote);
         form.setValue("notes", existingNote.notes);
       } else {
+        console.log('No note found for:', selectedDateStr);
         form.setValue("notes", "");
       }
     }
@@ -89,6 +97,8 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
       const dateStr = formatDateString(selectedDate);
       // Create date at noon UTC to avoid timezone issues
       const practiceDate = new Date(`${dateStr}T12:00:00.000Z`);
+
+      console.log('Saving note with date:', dateStr, practiceDate.toISOString());
 
       const res = await apiRequest("POST", `/api/teams/${teamId}/practice-notes`, {
         ...data,
@@ -122,7 +132,7 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
   }
 
   const getPlayerName = (playerId: number) => {
-    return players?.find(p => p.id === playerId)?.name || 'Unknown Player';
+    return players?.find(p => p.id === playerId)?.name;
   };
 
   return (
@@ -155,7 +165,7 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
                   {presentPlayerIds.map((playerId) => (
                     <Badge key={playerId} variant="secondary">
                       <Tag className="h-3 w-3 mr-1" />
-                      {getPlayerName(playerId)}
+                      {players?.find(p => p.id === playerId)?.name}
                     </Badge>
                   ))}
                 </div>
@@ -223,7 +233,7 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
                       {note.playerIds?.map((playerId) => (
                         <Badge key={playerId} variant="outline">
                           <Tag className="h-3 w-3 mr-1" />
-                          {getPlayerName(playerId)}
+                          {players?.find(p => p.id === playerId)?.name}
                         </Badge>
                       ))}
                     </div>

@@ -95,15 +95,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Practice Notes
   app.post("/api/teams/:teamId/practice-notes", async (req, res) => {
+    console.log('Received POST request to /api/teams/:teamId/practice-notes');
+    console.log('Request body:', req.body);
+    console.log('User:', req.user);
+
     if (!req.isAuthenticated() || req.user.role !== "coach") {
-      console.log('Authentication failed:', { isAuthenticated: req.isAuthenticated(), userRole: req.user?.role });
+      console.log('Authentication failed:', { 
+        isAuthenticated: req.isAuthenticated(), 
+        userRole: req.user?.role 
+      });
       return res.sendStatus(401);
     }
 
     const teamId = parseInt(req.params.teamId);
+    console.log('TeamId:', teamId);
+
     const team = await storage.getTeam(teamId);
+    console.log('Team found:', team);
+
     if (!team || team.coachId !== req.user.id) {
-      console.log('Team access denied:', { teamId, requestedBy: req.user.id });
+      console.log('Team access denied:', { 
+        teamId, 
+        requestedBy: req.user.id,
+        teamCoachId: team?.coachId 
+      });
       return res.sendStatus(403);
     }
 
@@ -131,7 +146,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(note);
     } catch (error) {
       console.error('Error creating practice note:', error);
-      res.status(400).json({ error: 'Invalid practice note data', details: error.message });
+      res.status(400).json({ 
+        error: 'Invalid practice note data', 
+        details: error.message,
+        stack: error.stack 
+      });
     }
   });
 

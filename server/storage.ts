@@ -151,9 +151,18 @@ export class DatabaseStorage implements IStorage {
 
       // Validate required fields
       if (!note.teamId || !note.coachId || !note.practiceDate || !note.notes || !note.playerIds) {
-        throw new Error('Missing required fields for practice note');
+        const missingFields = [];
+        if (!note.teamId) missingFields.push('teamId');
+        if (!note.coachId) missingFields.push('coachId');
+        if (!note.practiceDate) missingFields.push('practiceDate');
+        if (!note.notes) missingFields.push('notes');
+        if (!note.playerIds) missingFields.push('playerIds');
+
+        console.error('Missing required fields:', missingFields);
+        throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
       }
 
+      console.log('Attempting to insert practice note into database');
       const [newNote] = await db
         .insert(practiceNotes)
         .values({
@@ -168,7 +177,13 @@ export class DatabaseStorage implements IStorage {
       console.log('Successfully created practice note:', newNote);
       return newNote;
     } catch (error) {
-      console.error('Error creating practice note:', error);
+      console.error('Error creating practice note in storage:', error);
+      if (error instanceof Error) {
+        console.error('Error details:', {
+          message: error.message,
+          stack: error.stack
+        });
+      }
       throw new Error('Failed to create practice note: ' + (error as Error).message);
     }
   }

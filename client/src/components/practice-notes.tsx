@@ -22,6 +22,8 @@ import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
 export function PracticeNotes({ teamId }: { teamId: number }) {
+  console.log('PracticeNotes component mounted with teamId:', teamId);
+
   const { toast } = useToast();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [searchQuery, setSearchQuery] = useState("");
@@ -58,37 +60,55 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
 
   // Get present players for selected date
   const getPresentPlayers = (date: Date) => {
-    if (!attendance) return [];
+    console.log('Getting present players for date:', date);
+    if (!attendance) {
+      console.log('No attendance data available');
+      return [];
+    }
     const dateStr = format(date, 'yyyy-MM-dd');
-    return attendance
+    const presentPlayers = attendance
       .filter(record => {
         const recordDate = format(new Date(record.date), 'yyyy-MM-dd');
         return recordDate === dateStr && record.present;
       })
       .map(record => record.playerId);
+
+    console.log('Present players:', presentPlayers);
+    return presentPlayers;
   };
 
   // Update form when date changes
   useEffect(() => {
+    console.log('Date changed to:', selectedDate);
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
     const existingNote = notes?.find(note => 
       format(new Date(note.practiceDate), 'yyyy-MM-dd') === dateStr
     );
+    console.log('Existing note found:', existingNote);
+
+    const presentPlayers = getPresentPlayers(selectedDate);
+    console.log('Updating form with present players:', presentPlayers);
 
     form.reset({
       notes: existingNote?.notes || "",
-      playerIds: getPresentPlayers(selectedDate)
+      playerIds: presentPlayers
     });
   }, [selectedDate, notes, attendance, form]);
 
   const createNoteMutation = useMutation({
     mutationFn: async (data: { notes: string }) => {
+      console.log('Starting mutation with data:', data);
+
       if (!user?.id) {
+        console.error('No user ID found');
         throw new Error("You must be logged in to create practice notes");
       }
 
       const presentPlayers = getPresentPlayers(selectedDate);
+      console.log('Present players for mutation:', presentPlayers);
+
       if (presentPlayers.length === 0) {
+        console.error('No players present');
         throw new Error("No players marked as present for this date");
       }
 
@@ -100,7 +120,7 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
         practiceDate: selectedDate.toISOString()
       };
 
-      console.log('Submitting practice note:', requestData);
+      console.log('Submitting practice note request:', requestData);
 
       try {
         const response = await apiRequest(
@@ -109,8 +129,11 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
           requestData
         );
 
+        console.log('Received response:', response);
+
         if (!response.ok) {
           const error = await response.json();
+          console.error('Response not OK:', error);
           throw new Error(error.error || "Failed to save practice note");
         }
 
@@ -123,6 +146,7 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
       }
     },
     onSuccess: () => {
+      console.log('Mutation succeeded, invalidating queries');
       queryClient.invalidateQueries({ 
         queryKey: [`/api/teams/${teamId}/practice-notes`] 
       });
@@ -132,7 +156,7 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
       });
     },
     onError: (error: Error) => {
-      console.error('Error saving practice note:', error);
+      console.error('Mutation error:', error);
       toast({
         title: "Error",
         description: error.message,
@@ -155,6 +179,11 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
 
   const presentPlayers = getPresentPlayers(selectedDate);
 
+  const handleSubmit = (data: { notes: string }) => {
+    console.log('Form submitted with data:', data);
+    createNoteMutation.mutate(data);
+  };
+
   return (
     <div className="grid md:grid-cols-2 gap-6">
       <Card>
@@ -164,7 +193,7 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
         </CardHeader>
         <CardContent>
           <form
-            onSubmit={form.handleSubmit((data) => createNoteMutation.mutate(data))}
+            onSubmit={form.handleSubmit(handleSubmit)}
             className="space-y-4"
           >
             <div className="space-y-2">
@@ -172,7 +201,12 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
               <Calendar
                 mode="single"
                 selected={selectedDate}
-                onSelect={(date) => date && setSelectedDate(date)}
+                onSelect={(date) => {
+                  if (date) {
+                    console.log('Date selected:', date);
+                    setSelectedDate(date);
+                  }
+                }}
                 className="rounded-md border"
               />
             </div>

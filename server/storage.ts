@@ -1,11 +1,15 @@
 import {
-  User, Team, Player, Attendance, PracticeNote,
-  InsertUser, InsertTeam, InsertPlayer, InsertAttendance, InsertPracticeNote
+  users, teams, players, attendance, practiceNotes,
+  type User, type Team, type Player, type Attendance, type PracticeNote,
+  type InsertUser, type InsertTeam, type InsertPlayer, type InsertAttendance, type InsertPracticeNote
 } from "@shared/schema";
+import { db } from "./db";
+import { eq, and, gte, lte } from "drizzle-orm";
 import session from "express-session";
-import createMemoryStore from "memorystore";
+import connectPgSimple from "connect-pg-simple";
+import { pool } from "./db";
 
-const MemoryStore = createMemoryStore(session);
+const PostgresStore = connectPgSimple(session);
 
 export interface IStorage {
   // User operations
@@ -32,148 +36,117 @@ export interface IStorage {
   createPracticeNote(note: InsertPracticeNote): Promise<PracticeNote>;
   getPracticeNotesByTeamId(teamId: number): Promise<PracticeNote[]>;
 
-  sessionStore: session.SessionStore;
+  sessionStore: session.Store;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private teams: Map<number, Team>;
-  private players: Map<number, Player>;
-  private attendance: Map<number, Attendance>;
-  private practiceNotes: Map<number, PracticeNote>;
-  sessionStore: session.SessionStore;
-  private currentId: number;
+export class DatabaseStorage implements IStorage {
+  sessionStore: session.Store;
 
   constructor() {
-    this.users = new Map();
-    this.teams = new Map();
-    this.players = new Map();
-    this.attendance = new Map();
-    this.practiceNotes = new Map();
-    this.currentId = 1;
-    this.sessionStore = new MemoryStore({
-      checkPeriod: 86400000, // 24 hours
+    this.sessionStore = new PostgresStore({
+      pool,
+      createTableIfMissing: true,
     });
   }
 
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
-  }
-
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.currentId++;
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
   }
 
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
+  }
+
+  async createUser(user: InsertUser): Promise<User> {
+    const [newUser] = await db.insert(users).values(user).returning();
+    return newUser;
+  }
+
   async createTeam(team: InsertTeam): Promise<Team> {
-    const id = this.currentId++;
-    const newTeam: Team = { ...team, id, description: team.description || null };
-    this.teams.set(id, newTeam);
+    const [newTeam] = await db.insert(teams).values(team).returning();
     return newTeam;
   }
 
   async getTeamsByCoachId(coachId: number): Promise<Team[]> {
-    return Array.from(this.teams.values()).filter(
-      (team) => team.coachId === coachId,
-    );
+    return await db.select().from(teams).where(eq(teams.coachId, coachId));
   }
 
   async getTeam(id: number): Promise<Team | undefined> {
-    return this.teams.get(id);
+    const [team] = await db.select().from(teams).where(eq(teams.id, id));
+    return team;
   }
 
   async createPlayer(player: InsertPlayer): Promise<Player> {
-    const id = this.currentId++;
-    const newPlayer: Player = { ...player, id, active: player.active ?? true };
-    this.players.set(id, newPlayer);
+    const [newPlayer] = await db.insert(players).values(player).returning();
     return newPlayer;
   }
 
   async getPlayersByTeamId(teamId: number): Promise<Player[]> {
-    return Array.from(this.players.values()).filter(
-      (player) => player.teamId === teamId,
-    );
+    return await db.select().from(players).where(eq(players.teamId, teamId));
   }
 
-  async getAttendanceByTeamAndDate(teamId: number, date: Date): Promise<Attendance[]> {
-    const dateStr = new Date(date).toISOString().split('T')[0];
-    return Array.from(this.attendance.values()).filter(record => {
-      const recordDateStr = new Date(record.date).toISOString().split('T')[0];
-      return record.teamId === teamId && recordDateStr === dateStr;
-    });
-  }
-
-  async updateAttendance(teamId: number, date: Date, records: InsertAttendance[]): Promise<Attendance[]> {
-    // Convert the date string to local date for comparison
-    const dateStr = new Date(date).toLocaleDateString('en-CA'); // YYYY-MM-DD format
-
-    // Remove existing records for this date and team
-    this.attendance = new Map(
-      Array.from(this.attendance.entries()).filter(([_, record]) => {
-        const recordDateStr = new Date(record.date).toLocaleDateString('en-CA');
-        return !(record.teamId === teamId && recordDateStr === dateStr);
-      })
-    );
-
-    // Add new records
-    const newRecords: Attendance[] = [];
-    for (const record of records) {
-      const id = this.currentId++;
-      const newRecord: Attendance = {
-        ...record,
-        id,
-        // Create a new date at noon to avoid timezone issues
-        date: new Date(`${dateStr}T12:00:00`)
-      };
-      this.attendance.set(id, newRecord);
-      newRecords.push(newRecord);
-    }
-
-    return newRecords;
-  }
-
-  async createAttendance(attendance: InsertAttendance): Promise<Attendance> {
-    const id = this.currentId++;
-    const newAttendance: Attendance = {
-      ...attendance,
-      id,
-      date: new Date(attendance.date)
-    };
-    this.attendance.set(id, newAttendance);
+  async createAttendance(record: InsertAttendance): Promise<Attendance> {
+    const [newAttendance] = await db.insert(attendance).values(record).returning();
     return newAttendance;
   }
 
   async getAttendanceByTeamId(teamId: number): Promise<Attendance[]> {
-    return Array.from(this.attendance.values()).filter(
-      (record) => record.teamId === teamId,
-    );
+    return await db.select().from(attendance).where(eq(attendance.teamId, teamId));
+  }
+
+  async getAttendanceByTeamAndDate(teamId: number, date: Date): Promise<Attendance[]> {
+    // Get the date string in YYYY-MM-DD format
+    const dateStr = date.toLocaleDateString('en-CA');
+    const startDate = new Date(`${dateStr}T00:00:00Z`);
+    const endDate = new Date(`${dateStr}T23:59:59Z`);
+
+    return await db
+      .select()
+      .from(attendance)
+      .where(
+        and(
+          eq(attendance.teamId, teamId),
+          gte(attendance.date, startDate),
+          lte(attendance.date, endDate)
+        )
+      );
+  }
+
+  async updateAttendance(teamId: number, date: Date, records: InsertAttendance[]): Promise<Attendance[]> {
+    // Get the date string in YYYY-MM-DD format
+    const dateStr = date.toLocaleDateString('en-CA');
+    const startDate = new Date(`${dateStr}T00:00:00Z`);
+    const endDate = new Date(`${dateStr}T23:59:59Z`);
+
+    // Delete existing records for this date and team
+    await db
+      .delete(attendance)
+      .where(
+        and(
+          eq(attendance.teamId, teamId),
+          gte(attendance.date, startDate),
+          lte(attendance.date, endDate)
+        )
+      );
+
+    // Insert new records
+    if (records.length > 0) {
+      return await db.insert(attendance).values(records).returning();
+    }
+
+    return [];
   }
 
   async createPracticeNote(note: InsertPracticeNote): Promise<PracticeNote> {
-    const id = this.currentId++;
-    const newNote: PracticeNote = {
-      ...note,
-      id,
-      practiceDate: new Date(note.practiceDate),
-      playerIds: note.playerIds || null
-    };
-    this.practiceNotes.set(id, newNote);
+    const [newNote] = await db.insert(practiceNotes).values(note).returning();
     return newNote;
   }
 
   async getPracticeNotesByTeamId(teamId: number): Promise<PracticeNote[]> {
-    return Array.from(this.practiceNotes.values()).filter(
-      (note) => note.teamId === teamId,
-    );
+    return await db.select().from(practiceNotes).where(eq(practiceNotes.teamId, teamId));
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

@@ -46,14 +46,19 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
     queryKey: [`/api/teams/${teamId}/attendance`],
   });
 
+  // Helper function to format date to YYYY-MM-DD
+  function formatDateString(date: Date): string {
+    return date.toLocaleDateString('en-CA'); // Returns YYYY-MM-DD
+  }
+
   // Update present players when date or attendance data changes
   useEffect(() => {
     if (attendance) {
-      const selectedDateStr = selectedDate.toISOString().split('T')[0];
+      const selectedDateStr = formatDateString(selectedDate);
       const presentPlayers = attendance
         .filter(record => {
-          const recordDate = new Date(record.date).toISOString().split('T')[0];
-          return recordDate === selectedDateStr && record.present;
+          const recordDateStr = formatDateString(new Date(record.date));
+          return recordDateStr === selectedDateStr && record.present;
         })
         .map(record => record.playerId);
 
@@ -63,10 +68,14 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
 
   const createNoteMutation = useMutation({
     mutationFn: async (data: any) => {
+      // Create date at noon to avoid timezone issues
+      const dateStr = formatDateString(selectedDate);
+      const practiceDate = new Date(`${dateStr}T12:00:00`);
+
       const res = await apiRequest("POST", `/api/teams/${teamId}/practice-notes`, {
         ...data,
         playerIds: presentPlayerIds,
-        practiceDate: selectedDate.toISOString(),
+        practiceDate: practiceDate.toISOString(),
       });
       return res.json();
     },

@@ -64,6 +64,7 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
 
   const addPaymentMutation = useMutation({
     mutationFn: async (data: PaymentFormData) => {
+      console.log("Making payment API request with data:", data);
       const response = await apiRequest("POST", `/api/teams/${teamId}/payments`, {
         ...data,
         teamId,
@@ -112,11 +113,6 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
 
   if (!players) return null;
 
-  const onSubmit = (data: PaymentFormData) => {
-    console.log("Submitting payment:", data); 
-    addPaymentMutation.mutate(data);
-  };
-
   return (
     <div className="space-y-6">
       <Card>
@@ -126,7 +122,13 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <form 
+              onSubmit={form.handleSubmit((data) => {
+                console.log("Form submitted with data:", data);
+                addPaymentMutation.mutate(data);
+              })} 
+              className="space-y-4"
+            >
               <FormField
                 control={form.control}
                 name="playerId"
@@ -209,9 +211,9 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
                 disabled={addPaymentMutation.isPending}
                 className="w-full"
               >
-                {addPaymentMutation.isPending && (
+                {addPaymentMutation.isPending ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
+                ) : null}
                 Add Payment
               </Button>
             </form>

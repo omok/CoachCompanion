@@ -86,9 +86,10 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
 
   const createNoteMutation = useMutation({
     mutationFn: async (data: any) => {
-      // Create date at noon to avoid timezone issues
+      // Get the date string in YYYY-MM-DD format
       const dateStr = formatDateString(selectedDate);
-      const practiceDate = new Date(`${dateStr}T12:00:00`);
+      // Create date at noon to avoid timezone issues
+      const practiceDate = new Date(`${dateStr}T12:00:00Z`);
 
       const res = await apiRequest("POST", `/api/teams/${teamId}/practice-notes`, {
         ...data,

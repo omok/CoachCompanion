@@ -15,7 +15,7 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: varchar("username").notNull().unique(),
   password: varchar("password").notNull(),
-  role: varchar("role").notNull(), 
+  role: varchar("role").notNull(),
   name: varchar("name").notNull(),
 });
 
@@ -47,7 +47,7 @@ export const practiceNotes = pgTable("practice_notes", {
   teamId: integer("team_id").notNull(),
   coachId: integer("coach_id").notNull(),
   practiceDate: timestamp("practice_date").notNull(),
-  notes: varchar("notes").notNull(),
+  notes: varchar("notes", { length: 2000 }).notNull(),
   playerIds: integer("player_ids").array(),
 });
 
@@ -96,8 +96,8 @@ export const insertPracticeNoteSchema = z.object({
   teamId: z.number(),
   coachId: z.number(),
   practiceDate: z.string().transform(date => new Date(date)),
-  notes: z.string(),
-  playerIds: z.number().array().default([])
+  notes: z.string().min(1, "Notes are required").max(2000, "Notes cannot exceed 2000 characters"),
+  playerIds: z.number().array()
 });
 
 // New payment schema

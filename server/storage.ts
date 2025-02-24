@@ -4,7 +4,7 @@ import {
   type InsertUser, type InsertTeam, type InsertPlayer, type InsertAttendance, type InsertPracticeNote, type InsertPayment
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, lte, sum } from "drizzle-orm";
+import { eq, and, gte, lte, sum, desc } from "drizzle-orm";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { pool } from "./db";
@@ -146,62 +146,35 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createPracticeNote(note: InsertPracticeNote): Promise<PracticeNote> {
-    // Ensure the practice date is set to noon UTC
-    const dateStr = new Date(note.practiceDate).toLocaleDateString('en-CA');
-    const practiceDate = new Date(`${dateStr}T12:00:00.000Z`);
-
-    console.log('Creating practice note:', {
-      ...note,
-      practiceDate,
-      practiceDate_iso: practiceDate.toISOString()
-    });
-
     try {
       const [newNote] = await db
         .insert(practiceNotes)
         .values({
           teamId: note.teamId,
           coachId: note.coachId,
-          practiceDate: practiceDate,
+          practiceDate: note.practiceDate,
           notes: note.notes,
-          playerIds: note.playerIds || []
+          playerIds: note.playerIds
         })
         .returning();
 
-      console.log('Created practice note:', newNote);
-
-      return {
-        ...newNote,
-        practiceDate: new Date(
-          new Date(newNote.practiceDate).toLocaleDateString('en-CA') + 'T12:00:00.000Z'
-        )
-      };
+      return newNote;
     } catch (error) {
       console.error('Error creating practice note:', error);
-      throw error;
+      throw new Error('Failed to create practice note');
     }
   }
 
   async getPracticeNotesByTeamId(teamId: number): Promise<PracticeNote[]> {
     try {
-      const notes = await db
+      return await db
         .select()
         .from(practiceNotes)
         .where(eq(practiceNotes.teamId, teamId))
-        .orderBy(practiceNotes.practiceDate);
-
-      console.log('Retrieved practice notes:', notes);
-
-      // Ensure dates are handled consistently
-      return notes.map(note => ({
-        ...note,
-        practiceDate: new Date(
-          new Date(note.practiceDate).toLocaleDateString('en-CA') + 'T12:00:00.000Z'
-        )
-      }));
+        .orderBy(desc(practiceNotes.practiceDate));
     } catch (error) {
       console.error('Error getting practice notes:', error);
-      throw error;
+      throw new Error('Failed to get practice notes');
     }
   }
 

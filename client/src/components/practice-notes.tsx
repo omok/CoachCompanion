@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { PracticeNote, Player, Attendance, insertPracticeNoteSchema } from "@shared/schema";
+import { PracticeNote, Player, insertPracticeNoteSchema } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,18 +17,19 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Tag, Search } from "lucide-react";
+import { Loader2, Search } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
 export function PracticeNotes({ teamId }: { teamId: number }) {
   const { toast } = useToast();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterPlayers, setFilterPlayers] = useState<number[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [searchQuery, setSearchQuery] = useState("");
 
   const form = useForm({
-    resolver: zodResolver(insertPracticeNoteSchema.omit({ teamId: true, coachId: true })),
+    resolver: zodResolver(
+      insertPracticeNoteSchema.omit({ teamId: true, coachId: true })
+    ),
     defaultValues: {
       notes: "",
       playerIds: [] as number[]
@@ -43,51 +44,14 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
     queryKey: [`/api/teams/${teamId}/players`],
   });
 
-  const { data: attendance, isLoading: isLoadingAttendance } = useQuery<Attendance[]>({
-    queryKey: [`/api/teams/${teamId}/attendance`],
-  });
-
-  // Get present players for selected date
-  const getPresentPlayers = (date: Date) => {
-    if (!attendance) return [];
-    const dateStr = format(date, 'yyyy-MM-dd');
-    return attendance
-      .filter(record => {
-        const recordDate = format(new Date(record.date), 'yyyy-MM-dd');
-        return recordDate === dateStr && record.present;
-      })
-      .map(record => record.playerId);
-  };
-
-  // Update form when date changes
-  useEffect(() => {
-    const presentPlayers = getPresentPlayers(selectedDate);
-    const dateStr = format(selectedDate, 'yyyy-MM-dd');
-
-    const existingNote = notes?.find(note => 
-      format(new Date(note.practiceDate), 'yyyy-MM-dd') === dateStr
-    );
-
-    form.reset({
-      notes: existingNote?.notes || "",
-      playerIds: presentPlayers
-    });
-  }, [selectedDate, notes, attendance, form]);
-
   const createNoteMutation = useMutation({
-    mutationFn: async (data: { notes: string }) => {
-      const presentPlayers = getPresentPlayers(selectedDate);
-
-      if (presentPlayers.length === 0) {
-        throw new Error("No players marked as present for this date");
-      }
-
+    mutationFn: async (data: { notes: string; playerIds: number[] }) => {
       const response = await apiRequest(
-        "POST", 
+        "POST",
         `/api/teams/${teamId}/practice-notes`,
         {
           notes: data.notes,
-          playerIds: presentPlayers,
+          playerIds: data.playerIds,
           practiceDate: selectedDate.toISOString(),
         }
       );
@@ -105,6 +69,7 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
         title: "Success",
         description: "Practice note saved successfully",
       });
+      form.reset();
     },
     onError: (error: Error) => {
       toast({
@@ -115,14 +80,11 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
     },
   });
 
-  const filteredNotes = notes?.filter((note) => {
-    const matchesSearch = note.notes.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesPlayers = filterPlayers.length === 0 || 
-      filterPlayers.every(playerId => note.playerIds?.includes(playerId));
-    return matchesSearch && matchesPlayers;
-  });
+  const filteredNotes = notes?.filter((note) =>
+    note.notes.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
-  if (isLoadingNotes || isLoadingPlayers || isLoadingAttendance) {
+  if (isLoadingNotes || isLoadingPlayers) {
     return (
       <div className="flex justify-center p-8">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -130,18 +92,20 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
     );
   }
 
-  const presentPlayers = getPresentPlayers(selectedDate);
-
   return (
     <div className="grid md:grid-cols-2 gap-6">
-      {/* Practice Note Form */}
       <Card>
         <CardHeader>
-          <CardTitle>Practice Notes</CardTitle>
-          <CardDescription>Record notes for today's practice session</CardDescription>
+          <CardTitle>Add Practice Note</CardTitle>
+          <CardDescription>Record notes for today's practice</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={form.handleSubmit((data) => createNoteMutation.mutate(data))} className="space-y-4">
+          <form
+            onSubmit={form.handleSubmit((data) =>
+              createNoteMutation.mutate(data)
+            )}
+            className="space-y-4"
+          >
             <div className="space-y-2">
               <Label>Practice Date</Label>
               <Calendar
@@ -153,19 +117,23 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
             </div>
 
             <div className="space-y-2">
-              <Label>Players Present</Label>
-              <div className="flex gap-2 flex-wrap">
-                {presentPlayers.map((playerId) => (
-                  <Badge key={playerId} variant="secondary">
-                    {players?.find(p => p.id === playerId)?.name}
-                  </Badge>
+              <Label>Select Players</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {players?.map((player) => (
+                  <label
+                    key={player.id}
+                    className="flex items-center space-x-2 cursor-pointer p-2 rounded hover:bg-accent"
+                  >
+                    <input
+                      type="checkbox"
+                      {...form.register("playerIds")}
+                      value={player.id}
+                      className="rounded"
+                    />
+                    <span>{player.name}</span>
+                  </label>
                 ))}
               </div>
-              {presentPlayers.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                  No players marked as present for this date
-                </p>
-              )}
             </div>
 
             <div className="space-y-2">
@@ -177,9 +145,9 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
               />
             </div>
 
-            <Button 
-              type="submit" 
-              disabled={createNoteMutation.isPending || presentPlayers.length === 0}
+            <Button
+              type="submit"
+              disabled={createNoteMutation.isPending}
             >
               {createNoteMutation.isPending ? (
                 <>
@@ -187,27 +155,24 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
                   Saving...
                 </>
               ) : (
-                'Save Notes'
+                "Save Notes"
               )}
             </Button>
           </form>
         </CardContent>
       </Card>
 
-      {/* Practice Notes History */}
       <Card>
         <CardHeader>
           <CardTitle>Practice History</CardTitle>
-          <div className="mt-2">
-            <div className="relative">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search notes..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8"
-              />
-            </div>
+          <div className="relative">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search notes..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8"
+            />
           </div>
         </CardHeader>
         <CardContent>

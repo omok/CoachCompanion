@@ -40,8 +40,7 @@ export function AttendanceTracker({ teamId }: { teamId: number }) {
       // Find attendance records for the selected date
       const selectedDateStr = selectedDate.toISOString().split('T')[0];
       attendance.forEach(record => {
-        const recordDate = new Date(record.date);
-        const recordDateStr = recordDate.toISOString().split('T')[0];
+        const recordDateStr = new Date(record.date).toISOString().split('T')[0];
         if (recordDateStr === selectedDateStr) {
           newState[record.playerId] = record.present;
         }
@@ -53,8 +52,8 @@ export function AttendanceTracker({ teamId }: { teamId: number }) {
 
   const saveAttendanceMutation = useMutation({
     mutationFn: async () => {
-      // Create a date string that represents midnight of the selected date in local time
-      const dateStr = selectedDate.toISOString().split('T')[0] + 'T00:00:00.000Z';
+      // Format date as YYYY-MM-DD
+      const dateStr = selectedDate.toISOString().split('T')[0];
 
       // Collect all attendance records
       const records = Object.entries(attendanceState).map(([playerId, present]) => ({

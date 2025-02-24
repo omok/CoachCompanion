@@ -51,7 +51,7 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
     return date.toLocaleDateString('en-CA'); // Returns YYYY-MM-DD
   }
 
-  // Update present players when date or attendance data changes
+  // Update present players when date changes
   useEffect(() => {
     if (attendance) {
       const selectedDateStr = formatDateString(selectedDate);
@@ -66,7 +66,7 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
     }
   }, [selectedDate, attendance]);
 
-  // Load existing note for the selected date
+  // Load existing note when date changes
   useEffect(() => {
     if (notes) {
       const selectedDateStr = formatDateString(selectedDate);
@@ -75,11 +75,10 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
         return noteDateStr === selectedDateStr;
       });
 
-      // If a note exists for this date, pre-fill the form
       if (existingNote) {
         form.setValue("notes", existingNote.notes);
       } else {
-        form.setValue("notes", ""); // Clear the form if no note exists
+        form.setValue("notes", "");
       }
     }
   }, [selectedDate, notes, form]);
@@ -88,8 +87,8 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
     mutationFn: async (data: any) => {
       // Get the date string in YYYY-MM-DD format
       const dateStr = formatDateString(selectedDate);
-      // Create date at noon to avoid timezone issues
-      const practiceDate = new Date(`${dateStr}T12:00:00Z`);
+      // Create date at noon UTC to avoid timezone issues
+      const practiceDate = new Date(`${dateStr}T12:00:00.000Z`);
 
       const res = await apiRequest("POST", `/api/teams/${teamId}/practice-notes`, {
         ...data,

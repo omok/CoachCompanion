@@ -140,7 +140,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createPracticeNote(note: InsertPracticeNote): Promise<PracticeNote> {
-    const [newNote] = await db.insert(practiceNotes).values(note).returning();
+    // Ensure the practice date is set to noon UTC
+    const dateStr = new Date(note.practiceDate).toLocaleDateString('en-CA');
+    const practiceDate = new Date(`${dateStr}T12:00:00.000Z`);
+
+    const [newNote] = await db.insert(practiceNotes).values({
+      ...note,
+      practiceDate
+    }).returning();
     return newNote;
   }
 

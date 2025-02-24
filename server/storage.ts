@@ -123,23 +123,14 @@ export class MemStorage implements IStorage {
   }
 
   async updateAttendance(teamId: number, date: Date, records: InsertAttendance[]): Promise<Attendance[]> {
-    // Convert input date to UTC midnight for comparison
-    const dateUTC = new Date(Date.UTC(
-      date.getFullYear(),
-      date.getMonth(),
-      date.getDate()
-    ));
+    // Get the date string for comparison (YYYY-MM-DD)
+    const dateStr = date.toISOString().split('T')[0];
 
     // Remove existing records for this date and team
     this.attendance = new Map(
       Array.from(this.attendance.entries()).filter(([_, record]) => {
-        const recordDate = new Date(record.date);
-        const recordDateUTC = new Date(Date.UTC(
-          recordDate.getFullYear(),
-          recordDate.getMonth(),
-          recordDate.getDate()
-        ));
-        return !(record.teamId === teamId && recordDateUTC.getTime() === dateUTC.getTime());
+        const recordDateStr = record.date.toISOString().split('T')[0];
+        return !(record.teamId === teamId && recordDateStr === dateStr);
       })
     );
 
@@ -150,7 +141,7 @@ export class MemStorage implements IStorage {
       const newRecord: Attendance = {
         ...record,
         id,
-        date: dateUTC // Store in UTC
+        date: new Date(record.date)
       };
       this.attendance.set(id, newRecord);
       newRecords.push(newRecord);

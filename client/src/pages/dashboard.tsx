@@ -87,7 +87,7 @@ export default function Dashboard() {
                 onClick={() => setActiveTab("notes")}
               >
                 <Book className="h-4 w-4 mr-2" />
-                Session Notes
+                Practice Notes
               </Button>
               {user?.role === "coach" && (
                 <Button

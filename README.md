@@ -11,7 +11,7 @@ A comprehensive web application designed to streamline basketball team operation
 
 - 📝 **Practice Notes System**
   - Record and track practice attendance
-  - Create detailed session notes
+  - Create detailed practice notes
   - Monitor player progress
 
 - 💰 **Payment Tracking**

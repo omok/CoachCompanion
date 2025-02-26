@@ -17,40 +17,32 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Search } from "lucide-react";
+import { Loader2, Tag, Search } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
 export function PracticeNotes({ teamId }: { teamId: number }) {
-  console.log('PracticeNotes component mounted with teamId:', teamId);
-
   const { toast } = useToast();
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterPlayers, setFilterPlayers] = useState<number[]>([]);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
-  // Initialize form with validation schema
   const form = useForm({
-    resolver: zodResolver(
-      insertPracticeNoteSchema.omit({ teamId: true, coachId: true })
-    ),
+    resolver: zodResolver(insertPracticeNoteSchema.omit({ teamId: true, coachId: true })),
+    defaultValues: {
+      notes: "",
+      playerIds: [] as number[]
+    }
   });
 
-  // Fetch current user
-  const { data: user } = useQuery({
-    queryKey: ['/api/user'],
-  });
-
-  // Fetch practice notes
   const { data: notes, isLoading: isLoadingNotes } = useQuery<PracticeNote[]>({
     queryKey: [`/api/teams/${teamId}/practice-notes`],
   });
 
-  // Fetch players
   const { data: players, isLoading: isLoadingPlayers } = useQuery<Player[]>({
     queryKey: [`/api/teams/${teamId}/players`],
   });
 
-  // Fetch attendance
   const { data: attendance, isLoading: isLoadingAttendance } = useQuery<Attendance[]>({
     queryKey: [`/api/teams/${teamId}/attendance`],
   });
@@ -67,38 +59,45 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
       .map(record => record.playerId);
   };
 
-  // Define mutation for creating practice notes
+  // Update form when date changes
+  useEffect(() => {
+    const presentPlayers = getPresentPlayers(selectedDate);
+    const dateStr = format(selectedDate, 'yyyy-MM-dd');
+
+    const existingNote = notes?.find(note => 
+      format(new Date(note.practiceDate), 'yyyy-MM-dd') === dateStr
+    );
+
+    form.reset({
+      notes: existingNote?.notes || "",
+      playerIds: presentPlayers
+    });
+  }, [selectedDate, notes, attendance, form]);
+
   const createNoteMutation = useMutation({
-    mutationFn: async (formData: { notes: string }) => {
-      console.log('Form submitted with data:', formData);
-
-      if (!user?.id) {
-        throw new Error("You must be logged in to create practice notes");
-      }
-
+    mutationFn: async (data: { notes: string }) => {
       const presentPlayers = getPresentPlayers(selectedDate);
+
       if (presentPlayers.length === 0) {
         throw new Error("No players marked as present for this date");
       }
 
       const response = await apiRequest(
-        "POST",
+        "POST", 
         `/api/teams/${teamId}/practice-notes`,
         {
-          teamId: teamId,
-          coachId: user.id,
-          notes: formData.notes,
+          notes: data.notes,
           playerIds: presentPlayers,
-          practiceDate: selectedDate.toISOString()
+          practiceDate: selectedDate.toISOString(),
         }
       );
 
-      const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || "Failed to save practice note");
+        const error = await response.json();
+        throw new Error(error.message || "Failed to save practice note");
       }
 
-      return data;
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/teams/${teamId}/practice-notes`] });
@@ -116,10 +115,12 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
     },
   });
 
-  // Filter notes based on search query
-  const filteredNotes = notes?.filter((note) =>
-    note.notes.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredNotes = notes?.filter((note) => {
+    const matchesSearch = note.notes.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesPlayers = filterPlayers.length === 0 || 
+      filterPlayers.every(playerId => note.playerIds?.includes(playerId));
+    return matchesSearch && matchesPlayers;
+  });
 
   if (isLoadingNotes || isLoadingPlayers || isLoadingAttendance) {
     return (
@@ -131,21 +132,16 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
 
   const presentPlayers = getPresentPlayers(selectedDate);
 
-  // Form submit handler
-  const onSubmit = form.handleSubmit((data) => {
-    console.log('Form submission handler called with data:', data);
-    createNoteMutation.mutate(data);
-  });
-
   return (
     <div className="grid md:grid-cols-2 gap-6">
+      {/* Practice Note Form */}
       <Card>
         <CardHeader>
-          <CardTitle>Add Practice Note</CardTitle>
-          <CardDescription>Record notes for today's practice</CardDescription>
+          <CardTitle>Practice Notes</CardTitle>
+          <CardDescription>Record notes for today's practice session</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={onSubmit} className="space-y-4">
+          <form onSubmit={form.handleSubmit((data) => createNoteMutation.mutate(data))} className="space-y-4">
             <div className="space-y-2">
               <Label>Practice Date</Label>
               <Calendar
@@ -167,7 +163,7 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
               </div>
               {presentPlayers.length === 0 && (
                 <p className="text-sm text-muted-foreground">
-                  No players marked as present for this date. Please mark attendance first.
+                  No players marked as present for this date
                 </p>
               )}
             </div>
@@ -179,15 +175,10 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
                 placeholder="Enter practice notes..."
                 className="min-h-[150px]"
               />
-              {form.formState.errors.notes && (
-                <p className="text-sm text-destructive">
-                  {form.formState.errors.notes.message}
-                </p>
-              )}
             </div>
 
-            <Button
-              type="submit"
+            <Button 
+              type="submit" 
               disabled={createNoteMutation.isPending || presentPlayers.length === 0}
             >
               {createNoteMutation.isPending ? (
@@ -196,24 +187,27 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
                   Saving...
                 </>
               ) : (
-                "Save Notes"
+                'Save Notes'
               )}
             </Button>
           </form>
         </CardContent>
       </Card>
 
+      {/* Practice Notes History */}
       <Card>
         <CardHeader>
           <CardTitle>Practice History</CardTitle>
-          <div className="relative">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search notes..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8"
-            />
+          <div className="mt-2">
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search notes..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8"
+              />
+            </div>
           </div>
         </CardHeader>
         <CardContent>

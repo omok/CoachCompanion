@@ -4,7 +4,7 @@ import {
   type InsertUser, type InsertTeam, type InsertPlayer, type InsertAttendance, type InsertPracticeNote, type InsertPayment
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, lte, sum, desc } from "drizzle-orm";
+import { eq, and, gte, lte, sum } from "drizzle-orm";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { pool } from "./db";
@@ -146,58 +146,62 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createPracticeNote(note: InsertPracticeNote): Promise<PracticeNote> {
+    // Ensure the practice date is set to noon UTC
+    const dateStr = new Date(note.practiceDate).toLocaleDateString('en-CA');
+    const practiceDate = new Date(`${dateStr}T12:00:00.000Z`);
+
+    console.log('Creating practice note:', {
+      ...note,
+      practiceDate,
+      practiceDate_iso: practiceDate.toISOString()
+    });
+
     try {
-      console.log('Creating practice note with data:', note);
-
-      // Validate required fields
-      if (!note.teamId || !note.coachId || !note.practiceDate || !note.notes || !note.playerIds) {
-        const missingFields = [];
-        if (!note.teamId) missingFields.push('teamId');
-        if (!note.coachId) missingFields.push('coachId');
-        if (!note.practiceDate) missingFields.push('practiceDate');
-        if (!note.notes) missingFields.push('notes');
-        if (!note.playerIds) missingFields.push('playerIds');
-
-        console.error('Missing required fields:', missingFields);
-        throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
-      }
-
-      console.log('Attempting to insert practice note into database');
       const [newNote] = await db
         .insert(practiceNotes)
         .values({
           teamId: note.teamId,
           coachId: note.coachId,
-          practiceDate: note.practiceDate,
+          practiceDate: practiceDate,
           notes: note.notes,
-          playerIds: note.playerIds
+          playerIds: note.playerIds || []
         })
         .returning();
 
-      console.log('Successfully created practice note:', newNote);
-      return newNote;
+      console.log('Created practice note:', newNote);
+
+      return {
+        ...newNote,
+        practiceDate: new Date(
+          new Date(newNote.practiceDate).toLocaleDateString('en-CA') + 'T12:00:00.000Z'
+        )
+      };
     } catch (error) {
-      console.error('Error creating practice note in storage:', error);
-      if (error instanceof Error) {
-        console.error('Error details:', {
-          message: error.message,
-          stack: error.stack
-        });
-      }
-      throw new Error('Failed to create practice note: ' + (error as Error).message);
+      console.error('Error creating practice note:', error);
+      throw error;
     }
   }
 
   async getPracticeNotesByTeamId(teamId: number): Promise<PracticeNote[]> {
     try {
-      return await db
+      const notes = await db
         .select()
         .from(practiceNotes)
         .where(eq(practiceNotes.teamId, teamId))
-        .orderBy(desc(practiceNotes.practiceDate));
+        .orderBy(practiceNotes.practiceDate);
+
+      console.log('Retrieved practice notes:', notes);
+
+      // Ensure dates are handled consistently
+      return notes.map(note => ({
+        ...note,
+        practiceDate: new Date(
+          new Date(note.practiceDate).toLocaleDateString('en-CA') + 'T12:00:00.000Z'
+        )
+      }));
     } catch (error) {
       console.error('Error getting practice notes:', error);
-      throw new Error('Failed to get practice notes');
+      throw error;
     }
   }
 

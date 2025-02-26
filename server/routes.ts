@@ -21,15 +21,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/teams", async (req, res) => {
-    console.log('Teams request session:', req.session);
-    console.log('Teams request user:', req.user);
     if (!req.isAuthenticated()) {
       console.log('User not authenticated for /api/teams');
       return res.sendStatus(401);
     }
-    console.log('Authenticated user:', req.user);
+    console.log('Fetching teams for user:', req.user);
     const teams = await storage.getTeamsByCoachId(req.user.id);
-    console.log('Found teams:', teams);
     res.json(teams);
   });
 

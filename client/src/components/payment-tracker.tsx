@@ -7,9 +7,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { Loader2 } from "lucide-react";
+import { Loader2, ExternalLink } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { z } from "zod";
+import { Link } from "wouter";
 
 const formSchema = z.object({
   playerId: z.coerce.number().positive("Please select a player"),
@@ -205,7 +206,12 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
                   key={total.playerId}
                   className="flex justify-between items-center border-b pb-2"
                 >
-                  <span className="font-medium">{total.playerName}</span>
+                  <div 
+                    className="font-medium text-primary hover:text-primary/80 cursor-pointer"
+                    onClick={() => window.location.href = `/player/${teamId}/${total.playerId}`}
+                  >
+                    {total.playerName}
+                  </div>
                   <span className="text-lg">
                     ${total.total.toFixed(2)}
                   </span>

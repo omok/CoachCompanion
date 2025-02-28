@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Link } from "wouter";
 import {
   Card,
   CardContent,
@@ -17,7 +18,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Tag, Search } from "lucide-react";
+import { Loader2, Tag, Search, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
@@ -213,13 +214,13 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
     // Call the mutation
     try {
       createNoteMutation.mutate(completeData);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error calling mutation:', error);
       
       // Show error toast
       toast({
         title: "Error",
-        description: `Failed to save: ${error.message}`,
+        description: `Failed to save: ${error.message || 'Unknown error'}`,
         variant: "destructive",
       });
     }
@@ -274,7 +275,11 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
                   {presentPlayerIds.map((playerId) => (
                     <Badge key={playerId} variant="secondary">
                       <Tag className="h-3 w-3 mr-1" />
-                      {players?.find(p => p.id === playerId)?.name}
+                      <Link href={`/player/${teamId}/${playerId}`}>
+                        <span className="hover:underline cursor-pointer">
+                          {players?.find(p => p.id === playerId)?.name}
+                        </span>
+                      </Link>
                     </Badge>
                   ))}
                 </div>
@@ -350,9 +355,11 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
                     </CardTitle>
                     <div className="flex gap-1 flex-wrap">
                       {note.playerIds?.map((playerId) => (
-                        <Badge key={playerId} variant="outline">
+                        <Badge key={playerId} variant="outline" className="cursor-pointer hover:bg-muted" onClick={() => window.location.href = `/player/${teamId}/${playerId}`}>
                           <Tag className="h-3 w-3 mr-1" />
-                          {players?.find(p => p.id === playerId)?.name}
+                          <span className="font-medium">
+                            {players?.find(p => p.id === playerId)?.name}
+                          </span>
                         </Badge>
                       ))}
                     </div>

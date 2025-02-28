@@ -7,11 +7,13 @@ import { ProtectedRoute } from "./lib/protected-route";
 import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/auth-page";
 import Dashboard from "@/pages/dashboard";
+import PlayerDetails from "@/pages/player-details";
 
 function Router() {
   return (
     <Switch>
       <ProtectedRoute path="/" component={Dashboard} />
+      <ProtectedRoute path="/player/:teamId/:playerId" component={PlayerDetails} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>

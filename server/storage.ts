@@ -25,21 +25,24 @@ export interface IStorage {
   // Player operations
   createPlayer(player: InsertPlayer): Promise<Player>;
   getPlayersByTeamId(teamId: number): Promise<Player[]>;
+  getPlayer(id: number): Promise<Player | undefined>;
 
   // Attendance operations
   createAttendance(attendance: InsertAttendance): Promise<Attendance>;
   getAttendanceByTeamId(teamId: number): Promise<Attendance[]>;
   getAttendanceByTeamAndDate(teamId: number, date: Date): Promise<Attendance[]>;
   updateAttendance(teamId: number, date: Date, records: InsertAttendance[]): Promise<Attendance[]>;
+  getAttendanceByPlayerId(playerId: number, teamId: number): Promise<Attendance[]>;
 
   // Practice notes operations
   createPracticeNote(note: InsertPracticeNote): Promise<PracticeNote>;
   getPracticeNotesByTeamId(teamId: number): Promise<PracticeNote[]>;
+  getPracticeNotesByPlayerId(playerId: number, teamId: number): Promise<PracticeNote[]>;
 
   // New payment operations
   createPayment(payment: InsertPayment): Promise<Payment>;
   getPaymentsByTeamId(teamId: number): Promise<Payment[]>;
-  getPaymentsByPlayerId(playerId: number): Promise<Payment[]>;
+  getPaymentsByPlayerId(playerId: number, teamId?: number): Promise<Payment[]>;
   getPaymentTotalsByTeam(teamId: number): Promise<{ playerId: number; total: number; }[]>;
 
   sessionStore: session.Store;
@@ -91,6 +94,11 @@ export class DatabaseStorage implements IStorage {
 
   async getPlayersByTeamId(teamId: number): Promise<Player[]> {
     return await db.select().from(players).where(eq(players.teamId, teamId));
+  }
+
+  async getPlayer(id: number): Promise<Player | undefined> {
+    const result = await db.select().from(players).where(eq(players.id, id));
+    return result[0];
   }
 
   async createAttendance(record: InsertAttendance): Promise<Attendance> {
@@ -265,12 +273,21 @@ export class DatabaseStorage implements IStorage {
       .orderBy(payments.date);
   }
 
-  async getPaymentsByPlayerId(playerId: number): Promise<Payment[]> {
-    return await db
-      .select()
-      .from(payments)
-      .where(eq(payments.playerId, playerId))
-      .orderBy(payments.date);
+  async getPaymentsByPlayerId(playerId: number, teamId?: number): Promise<Payment[]> {
+    if (teamId) {
+      return db.select()
+        .from(payments)
+        .where(and(
+          eq(payments.playerId, playerId),
+          eq(payments.teamId, teamId)
+        ))
+        .orderBy(desc(payments.date));
+    } else {
+      return db.select()
+        .from(payments)
+        .where(eq(payments.playerId, playerId))
+        .orderBy(desc(payments.date));
+    }
   }
 
   async getPaymentTotalsByTeam(teamId: number): Promise<{ playerId: number; total: number; }[]> {
@@ -287,6 +304,25 @@ export class DatabaseStorage implements IStorage {
       playerId: row.playerId,
       total: Number(row.total) || 0,
     }));
+  }
+
+  async getAttendanceByPlayerId(playerId: number, teamId: number): Promise<Attendance[]> {
+    return db.select()
+      .from(attendance)
+      .where(and(
+        eq(attendance.playerId, playerId),
+        eq(attendance.teamId, teamId)
+      ))
+      .orderBy(desc(attendance.date));
+  }
+
+  async getPracticeNotesByPlayerId(playerId: number, teamId: number): Promise<PracticeNote[]> {
+    // This is a bit more complex since playerIds is an array
+    // We need to find notes where the player's ID is in the playerIds array
+    const allNotes = await this.getPracticeNotesByTeamId(teamId);
+    return allNotes.filter(note => 
+      note.playerIds && Array.isArray(note.playerIds) && note.playerIds.includes(playerId)
+    );
   }
 }
 

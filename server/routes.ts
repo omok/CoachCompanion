@@ -55,6 +55,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(players);
   });
 
+  // Get single player details
+  app.get("/api/teams/:teamId/players/:playerId", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const teamId = parseInt(req.params.teamId);
+    const playerId = parseInt(req.params.playerId);
+    
+    const team = await storage.getTeam(teamId);
+    if (!team || (req.user.role === "coach" && team.coachId !== req.user.id)) {
+      return res.sendStatus(403);
+    }
+    
+    const player = await storage.getPlayer(playerId);
+    if (!player || player.teamId !== teamId) {
+      return res.status(404).json({ error: 'Player not found' });
+    }
+    
+    res.json(player);
+  });
+
   // Attendance
   app.post("/api/teams/:teamId/attendance", async (req, res) => {
     if (!req.isAuthenticated() || req.user.role !== "coach") {
@@ -90,6 +109,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.sendStatus(403);
     }
     const attendance = await storage.getAttendanceByTeamId(teamId);
+    res.json(attendance);
+  });
+
+  // Get attendance records for a specific player
+  app.get("/api/teams/:teamId/attendance/player/:playerId", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const teamId = parseInt(req.params.teamId);
+    const playerId = parseInt(req.params.playerId);
+    
+    const team = await storage.getTeam(teamId);
+    if (!team || (req.user.role === "coach" && team.coachId !== req.user.id)) {
+      return res.sendStatus(403);
+    }
+    
+    const player = await storage.getPlayer(playerId);
+    if (!player || player.teamId !== teamId) {
+      return res.status(404).json({ error: 'Player not found' });
+    }
+    
+    const attendance = await storage.getAttendanceByPlayerId(playerId, teamId);
     res.json(attendance);
   });
 
@@ -165,6 +204,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(notes);
   });
 
+  // Get practice notes for a specific player
+  app.get("/api/teams/:teamId/practice-notes/player/:playerId", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const teamId = parseInt(req.params.teamId);
+    const playerId = parseInt(req.params.playerId);
+    
+    const team = await storage.getTeam(teamId);
+    if (!team || (req.user.role === "coach" && team.coachId !== req.user.id)) {
+      return res.sendStatus(403);
+    }
+    
+    const player = await storage.getPlayer(playerId);
+    if (!player || player.teamId !== teamId) {
+      return res.status(404).json({ error: 'Player not found' });
+    }
+    
+    const notes = await storage.getPracticeNotesByPlayerId(playerId, teamId);
+    res.json(notes);
+  });
+
   // Payments
   app.post("/api/teams/:teamId/payments", async (req, res) => {
     if (!req.isAuthenticated() || req.user.role !== "coach") {
@@ -207,6 +266,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     const totals = await storage.getPaymentTotalsByTeam(teamId);
     res.json(totals);
+  });
+
+  // Get payments for a specific player
+  app.get("/api/teams/:teamId/payments/player/:playerId", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "coach") {
+      return res.sendStatus(401);
+    }
+    const teamId = parseInt(req.params.teamId);
+    const playerId = parseInt(req.params.playerId);
+    
+    const team = await storage.getTeam(teamId);
+    if (!team || team.coachId !== req.user.id) {
+      return res.sendStatus(403);
+    }
+    
+    const player = await storage.getPlayer(playerId);
+    if (!player || player.teamId !== teamId) {
+      return res.status(404).json({ error: 'Player not found' });
+    }
+    
+    const payments = await storage.getPaymentsByPlayerId(playerId, teamId);
+    res.json(payments);
   });
 
   const httpServer = createServer(app);

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Link } from "wouter";
 import {
   Table,
   TableBody,
@@ -106,8 +107,12 @@ export function TeamRoster({ teamId }: { teamId: number }) {
         </TableHeader>
         <TableBody>
           {players?.map((player) => (
-            <TableRow key={player.id}>
-              <TableCell>{player.name}</TableCell>
+            <TableRow key={player.id} className="hover:bg-muted/50 cursor-pointer" onClick={() => window.location.href = `/player/${teamId}/${player.id}`}>
+              <TableCell>
+                <div className="font-medium text-primary hover:text-primary/80">
+                  {player.name}
+                </div>
+              </TableCell>
               <TableCell>
                 <span
                   className={`px-2 py-1 rounded-full text-xs ${

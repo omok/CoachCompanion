@@ -5,6 +5,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Link } from "wouter";
 import {
   Table,
   TableBody,
@@ -13,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, Save } from "lucide-react";
+import { Loader2, Save, ExternalLink } from "lucide-react";
 import { AttendanceStats } from "./attendance-stats";
 
 export function AttendanceTracker({ teamId }: { teamId: number }) {
@@ -135,7 +136,14 @@ export function AttendanceTracker({ teamId }: { teamId: number }) {
                 <TableBody>
                   {players?.map((player) => (
                     <TableRow key={player.id}>
-                      <TableCell>{player.name}</TableCell>
+                      <TableCell>
+                        <div 
+                          className="font-medium text-primary hover:text-primary/80 cursor-pointer"
+                          onClick={() => window.location.href = `/player/${teamId}/${player.id}`}
+                        >
+                          {player.name}
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <Checkbox
                           checked={attendanceState[player.id] ?? false}

@@ -24,9 +24,11 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Loader2, UserPlus } from "lucide-react";
+import { usePlayerContext } from "./player-context";
 
 export function TeamRoster({ teamId }: { teamId: number }) {
   const { user } = useAuth();
+  const { showPlayerDetails } = usePlayerContext();
   const form = useForm({
     resolver: zodResolver(insertPlayerSchema.omit({ teamId: true })),
   });
@@ -107,7 +109,11 @@ export function TeamRoster({ teamId }: { teamId: number }) {
         </TableHeader>
         <TableBody>
           {players?.map((player) => (
-            <TableRow key={player.id} className="hover:bg-muted/50 cursor-pointer" onClick={() => window.location.href = `/player/${teamId}/${player.id}`}>
+            <TableRow 
+              key={player.id} 
+              className="hover:bg-muted/50 cursor-pointer" 
+              onClick={() => showPlayerDetails(teamId, player.id)}
+            >
               <TableCell>
                 <div className="font-medium text-primary hover:text-primary/80">
                   {player.name}

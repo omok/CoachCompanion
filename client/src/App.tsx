@@ -4,16 +4,16 @@ import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from "./hooks/use-auth";
 import { ProtectedRoute } from "./lib/protected-route";
+import { PlayerProvider } from "./components/player-context";
+import { PlayerDetailsModal } from "./components/player-details-modal";
 import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/auth-page";
 import Dashboard from "@/pages/dashboard";
-import PlayerDetails from "@/pages/player-details";
 
 function Router() {
   return (
     <Switch>
       <ProtectedRoute path="/" component={Dashboard} />
-      <ProtectedRoute path="/player/:teamId/:playerId" component={PlayerDetails} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>
@@ -24,8 +24,11 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <Router />
-        <Toaster />
+        <PlayerProvider>
+          <Router />
+          <PlayerDetailsModal />
+          <Toaster />
+        </PlayerProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

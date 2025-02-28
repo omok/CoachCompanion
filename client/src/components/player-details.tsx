@@ -1,8 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useRoute, Link } from "wouter";
 import { Player, Attendance, PracticeNote, Payment } from "@shared/schema";
-import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,11 +23,20 @@ import {
 } from "lucide-react";
 import { AttendanceStats } from "@/components/attendance-stats";
 
-export default function PlayerDetails() {
+interface PlayerDetailsProps {
+  teamId: number;
+  playerId: number;
+  onBack?: () => void;
+  showBackButton?: boolean;
+}
+
+export function PlayerDetails({ 
+  teamId, 
+  playerId, 
+  onBack = () => window.history.back(),
+  showBackButton = true
+}: PlayerDetailsProps) {
   const { user } = useAuth();
-  const [, params] = useRoute("/player/:teamId/:playerId");
-  const teamId = parseInt(params?.teamId || "0");
-  const playerId = parseInt(params?.playerId || "0");
   const [activeTab, setActiveTab] = useState("details");
 
   // Fetch player details
@@ -61,7 +68,7 @@ export default function PlayerDetails() {
 
   if (isLoadingPlayer) {
     return (
-      <div className="flex justify-center items-center h-screen">
+      <div className="flex justify-center items-center h-full py-8">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
@@ -69,28 +76,33 @@ export default function PlayerDetails() {
 
   if (!player) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen">
+      <div className="flex flex-col items-center justify-center py-8">
         <h1 className="text-2xl font-bold mb-4">Player Not Found</h1>
-        <Link href="/">
-          <Button>
+        {showBackButton && (
+          <Button onClick={onBack}>
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
+            Back
           </Button>
-        </Link>
+        )}
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto py-4 px-3 sm:py-8 sm:px-4 max-w-5xl">
-      <div className="mb-4 sm:mb-6">
-        <Link href="/">
-          <Button variant="outline" size="sm" className="w-full sm:w-auto">
+    <div className="w-full">
+      {showBackButton && (
+        <div className="mb-4 sm:mb-6">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="w-full sm:w-auto"
+            onClick={onBack}
+          >
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
+            Back
           </Button>
-        </Link>
-      </div>
+        </div>
+      )}
 
       <div className="flex flex-col justify-between items-start mb-4 sm:mb-6">
         <div className="w-full">
@@ -104,23 +116,23 @@ export default function PlayerDetails() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid grid-cols-2 sm:grid-cols-4 mb-4 sm:mb-8 w-full">
-          <TabsTrigger value="details" className="text-xs sm:text-sm">
-            <User className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-            <span className="hidden xs:inline">Details</span>
+        <TabsList className="grid grid-cols-2 sm:grid-cols-4 mb-4 sm:mb-8 w-full h-auto min-h-[2.5rem]">
+          <TabsTrigger value="details" className="text-xs sm:text-sm px-1 sm:px-3 py-2 sm:py-2 h-auto flex items-center justify-center">
+            <User className="h-4 w-4 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
+            <span className="inline">Details</span>
           </TabsTrigger>
-          <TabsTrigger value="attendance" className="text-xs sm:text-sm">
-            <Calendar className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-            <span className="hidden xs:inline">Attendance</span>
+          <TabsTrigger value="attendance" className="text-xs sm:text-sm px-1 sm:px-3 py-2 sm:py-2 h-auto flex items-center justify-center">
+            <Calendar className="h-4 w-4 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
+            <span className="inline">Attendance</span>
           </TabsTrigger>
-          <TabsTrigger value="notes" className="text-xs sm:text-sm">
-            <BookOpen className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-            <span className="hidden xs:inline">Notes</span>
+          <TabsTrigger value="notes" className="text-xs sm:text-sm px-1 sm:px-3 py-2 sm:py-2 h-auto flex items-center justify-center">
+            <BookOpen className="h-4 w-4 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
+            <span className="inline">Notes</span>
           </TabsTrigger>
           {user?.role === "coach" && (
-            <TabsTrigger value="payments" className="text-xs sm:text-sm">
-              <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-              <span className="hidden xs:inline">Payments</span>
+            <TabsTrigger value="payments" className="text-xs sm:text-sm px-1 sm:px-3 py-2 sm:py-2 h-auto flex items-center justify-center">
+              <DollarSign className="h-4 w-4 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
+              <span className="inline">Payments</span>
             </TabsTrigger>
           )}
         </TabsList>

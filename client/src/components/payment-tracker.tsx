@@ -11,6 +11,8 @@ import { Loader2, ExternalLink } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { z } from "zod";
 import { Link } from "wouter";
+import { usePlayerContext } from "./player-context";
+import { useAuth } from "@/hooks/use-auth";
 
 const formSchema = z.object({
   playerId: z.coerce.number().positive("Please select a player"),
@@ -26,6 +28,8 @@ type FormData = z.infer<typeof formSchema>;
 
 export function PaymentTracker({ teamId }: { teamId: number }) {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { showPlayerDetails } = usePlayerContext();
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -208,7 +212,7 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
                 >
                   <div 
                     className="font-medium text-primary hover:text-primary/80 cursor-pointer"
-                    onClick={() => window.location.href = `/player/${teamId}/${total.playerId}`}
+                    onClick={() => showPlayerDetails(teamId, total.playerId)}
                   >
                     {total.playerName}
                   </div>

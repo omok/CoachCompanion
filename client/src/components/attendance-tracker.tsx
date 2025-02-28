@@ -16,8 +16,12 @@ import {
 } from "@/components/ui/table";
 import { Loader2, Save, ExternalLink } from "lucide-react";
 import { AttendanceStats } from "./attendance-stats";
+import { usePlayerContext } from "./player-context";
+import { useAuth } from "@/hooks/use-auth";
 
 export function AttendanceTracker({ teamId }: { teamId: number }) {
+  const { user } = useAuth();
+  const { showPlayerDetails } = usePlayerContext();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [attendanceState, setAttendanceState] = useState<Record<number, boolean>>({});
 
@@ -139,7 +143,7 @@ export function AttendanceTracker({ teamId }: { teamId: number }) {
                       <TableCell>
                         <div 
                           className="font-medium text-primary hover:text-primary/80 cursor-pointer"
-                          onClick={() => window.location.href = `/player/${teamId}/${player.id}`}
+                          onClick={() => showPlayerDetails(teamId, player.id)}
                         >
                           {player.name}
                         </div>

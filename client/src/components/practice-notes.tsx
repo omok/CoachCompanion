@@ -21,6 +21,8 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Tag, Search, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { usePlayerContext } from "./player-context";
+import { useAuth } from "@/hooks/use-auth";
 
 export function PracticeNotes({ teamId }: { teamId: number }) {
   const { toast } = useToast();
@@ -28,6 +30,8 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
   const [filterPlayers, setFilterPlayers] = useState<number[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [presentPlayerIds, setPresentPlayerIds] = useState<number[]>([]);
+  const { user } = useAuth();
+  const { showPlayerDetails } = usePlayerContext();
 
   const form = useForm({
     resolver: zodResolver(insertPracticeNoteSchema.omit({ teamId: true, coachId: true })),
@@ -275,11 +279,15 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
                   {presentPlayerIds.map((playerId) => (
                     <Badge key={playerId} variant="secondary">
                       <Tag className="h-3 w-3 mr-1" />
-                      <Link href={`/player/${teamId}/${playerId}`}>
-                        <span className="hover:underline cursor-pointer">
-                          {players?.find(p => p.id === playerId)?.name}
-                        </span>
-                      </Link>
+                      <span 
+                        className="hover:underline cursor-pointer"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          showPlayerDetails(teamId, playerId);
+                        }}
+                      >
+                        {players?.find(p => p.id === playerId)?.name}
+                      </span>
                     </Badge>
                   ))}
                 </div>
@@ -355,7 +363,12 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
                     </CardTitle>
                     <div className="flex gap-1 flex-wrap">
                       {note.playerIds?.map((playerId) => (
-                        <Badge key={playerId} variant="outline" className="cursor-pointer hover:bg-muted" onClick={() => window.location.href = `/player/${teamId}/${playerId}`}>
+                        <Badge 
+                          key={playerId} 
+                          variant="outline" 
+                          className="cursor-pointer hover:bg-muted" 
+                          onClick={() => showPlayerDetails(teamId, playerId)}
+                        >
                           <Tag className="h-3 w-3 mr-1" />
                           <span className="font-medium">
                             {players?.find(p => p.id === playerId)?.name}

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { PracticeNote, Player, Attendance, insertPracticeNoteSchema } from "@shared/schema";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -94,36 +94,49 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
   // Update the mutation to log everything
   const createNoteMutation = useMutation({
     mutationFn: async (data: any) => {
-      const dateStr = formatDateString(selectedDate);
-      const practiceDate = new Date(`${dateStr}T12:00:00.000Z`);
-
+     
       try {
+        // Data should already have practiceDate and playerIds from onSubmit
         const requestData = {
           notes: data.notes,
-          playerIds: presentPlayerIds,
-          practiceDate: practiceDate.toISOString(),
+          playerIds: data.playerIds,
+          practiceDate: data.practiceDate,
         };
 
-        console.log('Submitting practice note:', requestData);
 
-        const response = await apiRequest("POST", `/api/teams/${teamId}/practice-notes`, requestData);
-        const responseText = await response.text();
-        console.log('Raw response:', responseText);
-
-        if (!response.ok) {
-          try {
-            const error = JSON.parse(responseText);
-            throw new Error(error.error || 'Failed to save practice note');
-          } catch {
-            throw new Error(`Failed to save practice note: ${responseText}`);
-          }
+        // Make a direct fetch call instead of using apiRequest
+        // Use absolute URL to ensure it's hitting the right endpoint
+        const url = `/api/teams/${teamId}/practice-notes`;
+        
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestData),
+          credentials: 'include',
+        });
+        
+        
+        // Try to parse the response as JSON first
+        let responseData;
+        const contentType = response.headers.get('content-type');
+        
+        if (contentType && contentType.includes('application/json')) {
+          responseData = await response.json();
+        } else {
+          const text = await response.text();
+          responseData = { success: true, text };
         }
-
-        const result = JSON.parse(responseText);
-        console.log('Save successful:', result);
-        return result;
+        
+        if (!response.ok) {
+          console.error('Error response:', responseData);
+          throw new Error(`Failed to save practice note: ${JSON.stringify(responseData)}`);
+        }
+        
+        return responseData;
       } catch (error) {
-        console.error('Error saving practice note:', error);
+        console.error('Error in mutation:', error);
         throw error;
       }
     },
@@ -136,13 +149,81 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
     },
     onError: (error: Error) => {
       console.error('Mutation error:', error);
+      
+      // Extract the error message from the JSON if possible
+      let errorMessage = error.message;
+      try {
+        // Check if the error message contains JSON
+        if (error.message.includes('{')) {
+          const jsonStart = error.message.indexOf('{');
+          const jsonPart = error.message.substring(jsonStart);
+          const errorData = JSON.parse(jsonPart);
+          
+          // Use the details from the error response if available
+          if (errorData.error) {
+            errorMessage = errorData.error;
+            if (errorData.details) {
+              errorMessage += `: ${errorData.details}`;
+            }
+          }
+        }
+      } catch (e) {
+        // If parsing fails, just use the original error message
+        console.error('Error parsing error message:', e);
+      }
+      
       toast({
         title: "Failed to save note",
-        description: error.message,
+        description: errorMessage,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Simplified function to save practice notes
+  const savePracticeNote = (notes: string) => {
+    // Check if there are any present players
+    if (presentPlayerIds.length === 0) {
+      toast({
+        title: "No players present",
+        description: "Please mark at least one player as present before saving a practice note.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Format the date correctly
+    const dateStr = formatDateString(selectedDate);
+    const practiceDate = new Date(`${dateStr}T12:00:00.000Z`);
+    
+    // Create the complete data object
+    const completeData = {
+      notes: notes || 'Practice session',
+      practiceDate: practiceDate.toISOString(),
+      playerIds: presentPlayerIds
+    };
+    
+    
+    // Create a toast notification to show we're trying to save
+    toast({
+      title: "Saving practice note...",
+      description: "Attempting to save your practice note.",
+    });
+    
+    // Call the mutation
+    try {
+      createNoteMutation.mutate(completeData);
+    } catch (error) {
+      console.error('Error calling mutation:', error);
+      
+      // Show error toast
+      toast({
+        title: "Error",
+        description: `Failed to save: ${error.message}`,
         variant: "destructive",
       });
     }
-  });
+  };
 
   const filteredNotes = notes?.filter((note) => {
     const matchesSearch = note.notes.toLowerCase().includes(searchQuery.toLowerCase());
@@ -174,7 +255,7 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
           </CardHeader>
           <CardContent>
             <form
-              onSubmit={form.handleSubmit((data) => createNoteMutation.mutate(data))}
+              onSubmit={(e) => e.preventDefault()} // Prevent any form submission
               className="space-y-4"
             >
               <div className="space-y-2">
@@ -214,16 +295,26 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
                 />
               </div>
 
-              <Button type="submit" disabled={createNoteMutation.isPending || presentPlayerIds.length === 0}>
-                {createNoteMutation.isPending ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  'Save Practice Note'
-                )}
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  type="button" 
+                  disabled={createNoteMutation.isPending || presentPlayerIds.length === 0}
+                  onClick={() => {
+                    const notes = form.getValues("notes");
+                    savePracticeNote(notes);
+                  }}
+                >
+                  {createNoteMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Save Practice Note'
+                  )}
+                </Button>
+                
+              </div>
             </form>
           </CardContent>
         </Card>

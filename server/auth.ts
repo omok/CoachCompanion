@@ -1,7 +1,9 @@
+import express, { Express, Request, Response, NextFunction } from "express";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
-import { Express } from "express";
 import session from "express-session";
+import crypto from "crypto";
+import { compare, hash } from "./password";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
@@ -50,7 +52,8 @@ export async function initializeTestData() {
     }
 
     // Check if default team exists
-    let team = (await storage.getTeamsByCoachId(coach.id))[0];
+    const teams = await storage.getTeamsByCoachId(coach.id);
+    let team = teams[0];
     
     if (!team) {
       team = await storage.createTeam({
@@ -68,24 +71,38 @@ export async function initializeTestData() {
       { name: "Owen", teamId: team.id, parentId: 3, active: true }
     ];
 
-    for (const player of defaultPlayers) {
-      if (!existingPlayers.some(p => p.name === player.name)) {
-        await storage.createPlayer(player);
-      }
-    }
+    // Use Promise.all to create players in parallel
+    const playerCreationPromises = defaultPlayers
+      .filter(player => !existingPlayers.some(p => p.name === player.name))
+      .map(player => storage.createPlayer(player));
+    
+    await Promise.all(playerCreationPromises);
 
-    console.log("Test data initialization checked");
+    console.log("Test data initialization completed successfully");
   } catch (error) {
     console.error("Error initializing test data:", error);
   }
 }
 
 export function setupAuth(app: Express) {
+  if (!process.env.SESSION_SECRET) {
+    console.warn("WARNING: SESSION_SECRET environment variable not set. Using a random secret for development only.");
+    // Only allow this in development
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error("SESSION_SECRET must be set in production environment");
+    }
+  }
+
   const sessionSettings: session.SessionOptions = {
-    secret: process.env.SESSION_SECRET || 'your-secret-key',
+    secret: process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex'),
     resave: false,
     saveUninitialized: false,
     store: storage.sessionStore,
+    cookie: {
+      secure: process.env.NODE_ENV === 'production',
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    }
   };
 
   app.set("trust proxy", 1);

@@ -95,27 +95,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Practice Notes
   app.post("/api/teams/:teamId/practice-notes", async (req, res) => {
+    console.log('POST /api/teams/:teamId/practice-notes route hit');
+    console.log('Request body:', req.body);
+    console.log('Request params:', req.params);
+    console.log('User authenticated:', req.isAuthenticated());
+    
     if (!req.isAuthenticated() || req.user.role !== "coach") {
-      return res.sendStatus(401);
+      console.log('Authentication failed:', req.isAuthenticated(), req.user?.role);
+      return res.status(401).json({ error: 'Authentication required' });
     }
+    
     const teamId = parseInt(req.params.teamId);
-    const team = await storage.getTeam(teamId);
-    if (!team || team.coachId !== req.user.id) return res.sendStatus(403);
-
+    console.log('Team ID:', teamId);
+    
     try {
+      const team = await storage.getTeam(teamId);
+      console.log('Team found:', team);
+      
+      if (!team || team.coachId !== req.user.id) {
+        console.log('Authorization failed:', team?.coachId, req.user.id);
+        return res.status(403).json({ error: 'Not authorized to access this team' });
+      }
+
+      console.log('Received practice note request:', req.body);
+      
+      // Ensure playerIds is an array
+      const playerIds = Array.isArray(req.body.playerIds) ? req.body.playerIds : [];
+      
+      // Create the request data object
       const requestData = {
-        ...req.body,
+        notes: req.body.notes || '',
         teamId,
         coachId: req.user.id,
-        practiceDate: new Date(req.body.practiceDate)
+        practiceDate: req.body.practiceDate,
+        playerIds
       };
 
-      const parsed = insertPracticeNoteSchema.parse(requestData);
-      const note = await storage.createPracticeNote(parsed);
-      res.status(201).json(note);
+      console.log('Prepared request data:', requestData);
+
+      try {
+        // Parse with Zod schema
+        const parsed = insertPracticeNoteSchema.parse(requestData);
+        console.log('Parsed data:', parsed);
+        
+        // Create the practice note
+        const note = await storage.createPracticeNote(parsed);
+        console.log('Created/updated practice note:', note);
+        
+        // Return the created note
+        res.status(201).json(note);
+      } catch (error) {
+        console.error('Validation error:', error);
+        res.status(400).json({ error: 'Invalid practice note data', details: error.message });
+      }
     } catch (error) {
-      console.error('Error saving practice note:', error);
-      res.status(400).json({ error: 'Invalid practice note data' });
+      console.error('Server error:', error);
+      res.status(500).json({ error: 'Server error', details: error.message });
     }
   });
 

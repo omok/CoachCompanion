@@ -12,9 +12,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { z } from "zod";
 
 const formSchema = z.object({
-  playerId: z.number(),
-  amount: z.string().min(1, "Amount is required"),
-  date: z.string(),
+  playerId: z.coerce.number().positive("Please select a player"),
+  amount: z.string().min(1, "Amount is required").refine(
+    (val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0,
+    { message: "Amount must be a positive number" }
+  ),
+  date: z.string().min(1, "Date is required"),
   notes: z.string().optional(),
 });
 
@@ -46,7 +49,6 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
 
   const addPaymentMutation = useMutation({
     mutationFn: async (data: FormData) => {
-      console.log("Making payment API request with data:", data);
       const res = await apiRequest("POST", `/api/teams/${teamId}/payments`, {
         ...data,
         teamId,
@@ -103,7 +105,6 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
         <CardContent>
           <form 
             onSubmit={form.handleSubmit((data) => {
-              console.log("Form submitted with data:", data);
               addPaymentMutation.mutate(data);
             })} 
             className="space-y-4"

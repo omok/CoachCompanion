@@ -4,7 +4,7 @@ import {
   type InsertUser, type InsertTeam, type InsertPlayer, type InsertAttendance, type InsertPracticeNote, type InsertPayment
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, lte, sum } from "drizzle-orm";
+import { eq, and, gte, lte, sum, desc } from "drizzle-orm";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { pool } from "./db";
@@ -146,9 +146,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createPracticeNote(note: InsertPracticeNote): Promise<PracticeNote> {
-    // Ensure the practice date is set to noon UTC
-    const dateStr = new Date(note.practiceDate).toLocaleDateString('en-CA');
-    const practiceDate = new Date(`${dateStr}T12:00:00.000Z`);
+    // Standardize date to UTC noon to avoid timezone issues
+    // note.practiceDate is already a Date object due to Zod transformation
+    const practiceDate = note.practiceDate;
+    practiceDate.setUTCHours(12, 0, 0, 0);
 
     console.log('Creating practice note:', {
       ...note,
@@ -157,24 +158,56 @@ export class DatabaseStorage implements IStorage {
     });
 
     try {
-      const [newNote] = await db
-        .insert(practiceNotes)
-        .values({
-          teamId: note.teamId,
-          coachId: note.coachId,
-          practiceDate: practiceDate,
-          notes: note.notes,
-          playerIds: note.playerIds || []
-        })
-        .returning();
+      // Check if a note already exists for this date and team
+      const existingNotes = await db
+        .select()
+        .from(practiceNotes)
+        .where(
+          and(
+            eq(practiceNotes.teamId, note.teamId),
+            eq(practiceNotes.practiceDate, practiceDate)
+          )
+        );
 
-      console.log('Created practice note:', newNote);
+      let newNote;
+      
+      if (existingNotes.length > 0) {
+        // Update existing note
+        const [updatedNote] = await db
+          .update(practiceNotes)
+          .set({
+            notes: note.notes,
+            playerIds: note.playerIds || []
+          })
+          .where(eq(practiceNotes.id, existingNotes[0].id))
+          .returning();
+          
+        newNote = updatedNote;
+        console.log('Updated existing practice note:', newNote);
+      } else {
+        // Create new note
+        const [createdNote] = await db
+          .insert(practiceNotes)
+          .values({
+            teamId: note.teamId,
+            coachId: note.coachId,
+            practiceDate: practiceDate,
+            notes: note.notes,
+            playerIds: note.playerIds || []
+          })
+          .returning();
+          
+        newNote = createdNote;
+        console.log('Created new practice note:', newNote);
+      }
+
+      // Standardize the returned date
+      const standardizedDate = new Date(newNote.practiceDate);
+      standardizedDate.setUTCHours(12, 0, 0, 0);
 
       return {
         ...newNote,
-        practiceDate: new Date(
-          new Date(newNote.practiceDate).toLocaleDateString('en-CA') + 'T12:00:00.000Z'
-        )
+        practiceDate: standardizedDate
       };
     } catch (error) {
       console.error('Error creating practice note:', error);
@@ -188,17 +221,20 @@ export class DatabaseStorage implements IStorage {
         .select()
         .from(practiceNotes)
         .where(eq(practiceNotes.teamId, teamId))
-        .orderBy(practiceNotes.practiceDate);
+        .orderBy(desc(practiceNotes.practiceDate));
 
       console.log('Retrieved practice notes:', notes);
 
-      // Ensure dates are handled consistently
-      return notes.map(note => ({
-        ...note,
-        practiceDate: new Date(
-          new Date(note.practiceDate).toLocaleDateString('en-CA') + 'T12:00:00.000Z'
-        )
-      }));
+      // Standardize dates to UTC noon
+      return notes.map(note => {
+        const standardizedDate = new Date(note.practiceDate);
+        standardizedDate.setUTCHours(12, 0, 0, 0);
+        
+        return {
+          ...note,
+          practiceDate: standardizedDate
+        };
+      });
     } catch (error) {
       console.error('Error getting practice notes:', error);
       throw error;
@@ -206,11 +242,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createPayment(payment: InsertPayment): Promise<Payment> {
+    // Ensure amount is properly formatted as a numeric value
+    const amount = typeof payment.amount === 'string' 
+      ? parseFloat(payment.amount) 
+      : payment.amount;
+      
     const [newPayment] = await db
       .insert(payments)
       .values({
         ...payment,
-        amount: payment.amount.toString() // Convert number to string for numeric column
+        amount // Let the database handle the numeric conversion
       })
       .returning();
     return newPayment;

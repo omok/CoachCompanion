@@ -22,8 +22,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/teams", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    const teams = await storage.getTeamsByCoachId(req.user.id);
-    res.json(teams);
+    
+    // Different behavior based on user role
+    if (req.user.role === "coach") {
+      // Coaches see teams they coach
+      const teams = await storage.getTeamsByCoachId(req.user.id);
+      res.json(teams);
+    } else if (req.user.role === "parent") {
+      // Parents see teams their children are on
+      const teams = await storage.getTeamsByParentId(req.user.id);
+      res.json(teams);
+    } else {
+      res.json([]);
+    }
   });
 
   // Players
@@ -183,21 +194,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Return the created note
         res.status(201).json(note);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Validation error:', error);
         res.status(400).json({ error: 'Invalid practice note data', details: error.message });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Server error:', error);
       res.status(500).json({ error: 'Server error', details: error.message });
     }
   });
 
   app.get("/api/teams/:teamId/practice-notes", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (!req.isAuthenticated() || req.user.role !== "coach") return res.sendStatus(401);
     const teamId = parseInt(req.params.teamId);
     const team = await storage.getTeam(teamId);
-    if (!team || (req.user.role === "coach" && team.coachId !== req.user.id)) {
+    if (!team || team.coachId !== req.user.id) {
       return res.sendStatus(403);
     }
     const notes = await storage.getPracticeNotesByTeamId(teamId);
@@ -206,12 +217,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Get practice notes for a specific player
   app.get("/api/teams/:teamId/practice-notes/player/:playerId", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (!req.isAuthenticated() || req.user.role !== "coach") return res.sendStatus(401);
     const teamId = parseInt(req.params.teamId);
     const playerId = parseInt(req.params.playerId);
     
     const team = await storage.getTeam(teamId);
-    if (!team || (req.user.role === "coach" && team.coachId !== req.user.id)) {
+    if (!team || team.coachId !== req.user.id) {
       return res.sendStatus(403);
     }
     

@@ -3,7 +3,6 @@ import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import session from "express-session";
 import crypto from "crypto";
-import { compare, hash } from "./password";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
@@ -59,16 +58,41 @@ export async function initializeTestData() {
       team = await storage.createTeam({
         name: "CMS",
         coachId: coach.id,
-        description: null
+        description: ""
       });
+    }
+
+    // Create parent users if they don't exist
+    const defaultParents = [
+      { username: "parent1", password: "parent1", role: "parent", name: "Parent One" },
+      { username: "parent2", password: "parent2", role: "parent", name: "Parent Two" },
+      { username: "parent3", password: "parent3", role: "parent", name: "Parent Three" }
+    ];
+
+    // Create parent users
+    for (const parentData of defaultParents) {
+      const existingParent = await storage.getUserByUsername(parentData.username);
+      if (!existingParent) {
+        const hashedPassword = await hashPassword(parentData.password);
+        await storage.createUser({
+          ...parentData,
+          password: hashedPassword
+        });
+      }
     }
 
     // Create default players if they don't exist
     const existingPlayers = await storage.getPlayersByTeamId(team.id);
+    
+    // Get parent users to use their actual IDs
+    const parent1 = await storage.getUserByUsername("parent1");
+    const parent2 = await storage.getUserByUsername("parent2");
+    const parent3 = await storage.getUserByUsername("parent3");
+    
     const defaultPlayers = [
-      { name: "Nolan", teamId: team.id, parentId: 1, active: true },
-      { name: "Alex", teamId: team.id, parentId: 2, active: true },
-      { name: "Owen", teamId: team.id, parentId: 3, active: true }
+      { name: "Nolan", teamId: team.id, parentId: parent1 ? parent1.id : 1, active: true },
+      { name: "Alex", teamId: team.id, parentId: parent2 ? parent2.id : 2, active: true },
+      { name: "Owen", teamId: team.id, parentId: parent3 ? parent3.id : 3, active: true }
     ];
 
     // Use Promise.all to create players in parallel

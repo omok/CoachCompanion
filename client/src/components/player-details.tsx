@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Player, Attendance, PracticeNote, Payment } from "@shared/schema";
 import { useAuth } from "@/hooks/use-auth";
@@ -39,6 +39,14 @@ export function PlayerDetails({
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("details");
 
+  // Set default tab based on user role
+  useEffect(() => {
+    // If the user is not a coach and the active tab is "notes", switch to "details"
+    if (user?.role !== "coach" && activeTab === "notes") {
+      setActiveTab("details");
+    }
+  }, [user?.role, activeTab]);
+
   // Fetch player details
   const { data: player, isLoading: isLoadingPlayer } = useQuery<Player>({
     queryKey: [`/api/teams/${teamId}/players/${playerId}`],
@@ -54,7 +62,7 @@ export function PlayerDetails({
   // Fetch practice notes
   const { data: practiceNotes, isLoading: isLoadingNotes } = useQuery<PracticeNote[]>({
     queryKey: [`/api/teams/${teamId}/practice-notes/player/${playerId}`],
-    enabled: !!teamId && !!playerId,
+    enabled: !!teamId && !!playerId && user?.role === "coach",
   });
 
   // Fetch payments
@@ -125,10 +133,12 @@ export function PlayerDetails({
             <Calendar className="h-4 w-4 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
             <span className="inline">Attendance</span>
           </TabsTrigger>
-          <TabsTrigger value="notes" className="text-xs sm:text-sm px-1 sm:px-3 py-2 sm:py-2 h-auto flex items-center justify-center">
-            <BookOpen className="h-4 w-4 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
-            <span className="inline">Notes</span>
-          </TabsTrigger>
+          {user?.role === "coach" && (
+            <TabsTrigger value="notes" className="text-xs sm:text-sm px-1 sm:px-3 py-2 sm:py-2 h-auto flex items-center justify-center">
+              <BookOpen className="h-4 w-4 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
+              <span className="inline">Notes</span>
+            </TabsTrigger>
+          )}
           {user?.role === "coach" && (
             <TabsTrigger value="payments" className="text-xs sm:text-sm px-1 sm:px-3 py-2 sm:py-2 h-auto flex items-center justify-center">
               <DollarSign className="h-4 w-4 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
@@ -278,35 +288,37 @@ export function PlayerDetails({
         </TabsContent>
 
         {/* Practice Notes Tab */}
-        <TabsContent value="notes">
-          <Card>
-            <CardHeader className="pb-2 sm:pb-4">
-              <CardTitle className="text-lg sm:text-xl">Practice Notes</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isLoadingNotes ? (
-                <div className="flex justify-center py-4">
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                </div>
-              ) : practiceNotes?.length ? (
-                <div className="space-y-4 sm:space-y-6">
-                  {practiceNotes.map((note) => (
-                    <div key={note.id} className="border rounded-lg p-3 sm:p-4">
-                      <div className="flex justify-between items-start mb-2">
-                        <h3 className="font-semibold text-sm sm:text-base">
-                          {new Date(note.practiceDate).toLocaleDateString()}
-                        </h3>
+        {user?.role === "coach" && (
+          <TabsContent value="notes">
+            <Card>
+              <CardHeader className="pb-2 sm:pb-4">
+                <CardTitle className="text-lg sm:text-xl">Practice Notes</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isLoadingNotes ? (
+                  <div className="flex justify-center py-4">
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  </div>
+                ) : practiceNotes?.length ? (
+                  <div className="space-y-4 sm:space-y-6">
+                    {practiceNotes.map((note) => (
+                      <div key={note.id} className="border rounded-lg p-3 sm:p-4">
+                        <div className="flex justify-between items-start mb-2">
+                          <h3 className="font-semibold text-sm sm:text-base">
+                            {new Date(note.practiceDate).toLocaleDateString()}
+                          </h3>
+                        </div>
+                        <p className="whitespace-pre-wrap text-xs sm:text-sm">{note.notes}</p>
                       </div>
-                      <p className="whitespace-pre-wrap text-xs sm:text-sm">{note.notes}</p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-center py-4 text-muted-foreground text-sm">No practice notes found</p>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-center py-4 text-muted-foreground text-sm">No practice notes found</p>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
 
         {/* Payments Tab (Coach Only) */}
         {user?.role === "coach" && (

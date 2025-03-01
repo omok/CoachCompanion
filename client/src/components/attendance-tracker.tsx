@@ -14,16 +14,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, Save, ExternalLink } from "lucide-react";
+import { Loader2, Save, ExternalLink, Check, X } from "lucide-react";
 import { AttendanceStats } from "./attendance-stats";
 import { usePlayerContext } from "./player-context";
 import { useAuth } from "@/hooks/use-auth";
+import { Badge } from "@/components/ui/badge";
 
 export function AttendanceTracker({ teamId }: { teamId: number }) {
   const { user } = useAuth();
   const { showPlayerDetails } = usePlayerContext();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [attendanceState, setAttendanceState] = useState<Record<number, boolean>>({});
+  const isCoach = user?.role === "coach";
 
   const { data: players, isLoading: isLoadingPlayers } = useQuery<Player[]>({
     queryKey: [`/api/teams/${teamId}/players`],
@@ -94,11 +96,17 @@ export function AttendanceTracker({ teamId }: { teamId: number }) {
     );
   }
 
+  // Get present players for the selected date
+  const presentPlayers = players?.filter(player => attendanceState[player.id]) || [];
+  const absentPlayers = players?.filter(player => !attendanceState[player.id]) || [];
+
   return (
     <div className="space-y-6">
       <div className="grid md:grid-cols-2 gap-6">
         <div>
-          <h2 className="text-xl font-semibold mb-4">Take Attendance</h2>
+          <h2 className="text-xl font-semibold mb-4">
+            {isCoach ? "Take Attendance" : "Attendance Record"}
+          </h2>
           <div className="space-y-4">
             <Calendar
               mode="single"
@@ -112,57 +120,109 @@ export function AttendanceTracker({ teamId }: { teamId: number }) {
                 <h3 className="text-lg font-medium">
                   Attendance for {selectedDate.toLocaleDateString()}
                 </h3>
-                <Button 
-                  onClick={() => saveAttendanceMutation.mutate()}
-                  disabled={saveAttendanceMutation.isPending}
-                >
-                  {saveAttendanceMutation.isPending ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="h-4 w-4 mr-2" />
-                      Save Attendance
-                    </>
-                  )}
-                </Button>
+                {isCoach && (
+                  <Button 
+                    onClick={() => saveAttendanceMutation.mutate()}
+                    disabled={saveAttendanceMutation.isPending}
+                  >
+                    {saveAttendanceMutation.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4 mr-2" />
+                        Save Attendance
+                      </>
+                    )}
+                  </Button>
+                )}
               </div>
 
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Player</TableHead>
-                    <TableHead className="w-24">Present</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {players?.map((player) => (
-                    <TableRow key={player.id}>
-                      <TableCell>
-                        <div 
-                          className="font-medium text-primary hover:text-primary/80 cursor-pointer"
-                          onClick={() => showPlayerDetails(teamId, player.id)}
-                        >
-                          {player.name}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Checkbox
-                          checked={attendanceState[player.id] ?? false}
-                          onCheckedChange={(checked) =>
-                            setAttendanceState((prev) => ({
-                              ...prev,
-                              [player.id]: checked === true,
-                            }))
-                          }
-                        />
-                      </TableCell>
+              {isCoach ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Player</TableHead>
+                      <TableHead className="w-24">Present</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {players?.map((player) => (
+                      <TableRow key={player.id}>
+                        <TableCell>
+                          <div 
+                            className="font-medium text-primary hover:text-primary/80 cursor-pointer"
+                            onClick={() => showPlayerDetails(teamId, player.id)}
+                          >
+                            {player.name}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Checkbox
+                            checked={attendanceState[player.id] ?? false}
+                            onCheckedChange={(checked) =>
+                              setAttendanceState((prev) => ({
+                                ...prev,
+                                [player.id]: checked === true,
+                              }))
+                            }
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="space-y-6">
+                  <div>
+                    <h4 className="text-sm font-medium mb-2 flex items-center">
+                      <Check className="h-4 w-4 mr-2 text-green-500" />
+                      Present ({presentPlayers.length})
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {presentPlayers.length > 0 ? (
+                        presentPlayers.map(player => (
+                          <Badge key={player.id} variant="outline" className="cursor-pointer hover:bg-muted">
+                            <div 
+                              className="font-medium"
+                              onClick={() => showPlayerDetails(teamId, player.id)}
+                            >
+                              {player.name}
+                            </div>
+                          </Badge>
+                        ))
+                      ) : (
+                        <p className="text-sm text-muted-foreground">No players marked as present</p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h4 className="text-sm font-medium mb-2 flex items-center">
+                      <X className="h-4 w-4 mr-2 text-red-500" />
+                      Absent ({absentPlayers.length})
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {absentPlayers.length > 0 ? (
+                        absentPlayers.map(player => (
+                          <Badge key={player.id} variant="outline" className="cursor-pointer hover:bg-muted">
+                            <div 
+                              className="font-medium"
+                              onClick={() => showPlayerDetails(teamId, player.id)}
+                            >
+                              {player.name}
+                            </div>
+                          </Badge>
+                        ))
+                      ) : (
+                        <p className="text-sm text-muted-foreground">No players marked as absent</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

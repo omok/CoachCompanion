@@ -4,7 +4,7 @@ import {
   type InsertUser, type InsertTeam, type InsertPlayer, type InsertAttendance, type InsertPracticeNote, type InsertPayment
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, lte, sum, desc } from "drizzle-orm";
+import { eq, and, gte, lte, sum, desc, inArray } from "drizzle-orm";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { pool } from "./db";
@@ -20,6 +20,7 @@ export interface IStorage {
   // Team operations
   createTeam(team: InsertTeam): Promise<Team>;
   getTeamsByCoachId(coachId: number): Promise<Team[]>;
+  getTeamsByParentId(parentId: number): Promise<Team[]>;
   getTeam(id: number): Promise<Team | undefined>;
 
   // Player operations
@@ -80,6 +81,22 @@ export class DatabaseStorage implements IStorage {
 
   async getTeamsByCoachId(coachId: number): Promise<Team[]> {
     return await db.select().from(teams).where(eq(teams.coachId, coachId));
+  }
+
+  async getTeamsByParentId(parentId: number): Promise<Team[]> {
+    // First, get all players associated with this parent
+    const parentPlayers = await db.select().from(players).where(eq(players.parentId, parentId));
+    
+    if (parentPlayers.length === 0) {
+      return [];
+    }
+    
+    // Extract the team IDs from the players
+    const teamIdsSet = new Set(parentPlayers.map(player => player.teamId));
+    const teamIds = Array.from(teamIdsSet);
+    
+    // Get the teams with those IDs
+    return await db.select().from(teams).where(inArray(teams.id, teamIds));
   }
 
   async getTeam(id: number): Promise<Team | undefined> {

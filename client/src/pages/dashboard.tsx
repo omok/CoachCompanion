@@ -81,14 +81,16 @@ export default function Dashboard() {
                 <CalendarCheck className="h-4 w-4 mr-2" />
                 Attendance
               </Button>
-              <Button
-                variant={activeTab === "notes" ? "secondary" : "ghost"}
-                className="w-full justify-start"
-                onClick={() => setActiveTab("notes")}
-              >
-                <Book className="h-4 w-4 mr-2" />
-                Practice Notes
-              </Button>
+              {user?.role === "coach" && (
+                <Button
+                  variant={activeTab === "notes" ? "secondary" : "ghost"}
+                  className="w-full justify-start"
+                  onClick={() => setActiveTab("notes")}
+                >
+                  <Book className="h-4 w-4 mr-2" />
+                  Practice Notes
+                </Button>
+              )}
               {user?.role === "coach" && (
                 <Button
                   variant={activeTab === "payments" ? "secondary" : "ghost"}
@@ -127,7 +129,7 @@ export default function Dashboard() {
             <h1 className="text-2xl font-bold mb-6">{selectedTeam?.name}</h1>
             {activeTab === "roster" && <TeamRoster teamId={selectedTeamId} />}
             {activeTab === "attendance" && <AttendanceTracker teamId={selectedTeamId} />}
-            {activeTab === "notes" && <PracticeNotes teamId={selectedTeamId} />}
+            {activeTab === "notes" && user?.role === "coach" && <PracticeNotes teamId={selectedTeamId} />}
             {activeTab === "payments" && user?.role === "coach" && (
               <PaymentTracker teamId={selectedTeamId} />
             )}

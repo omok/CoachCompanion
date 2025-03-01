@@ -47,7 +47,7 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
   });
 
   const { data: paymentTotals, isLoading: isLoadingTotals } = useQuery<
-    { playerId: number; total: number }[]
+    { playerId: number; totalAmount: string | null }[]
   >({
     queryKey: [`/api/teams/${teamId}/payments/totals`],
   });
@@ -204,7 +204,11 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
         <CardContent>
           <div className="space-y-4">
             {paymentTotalsWithNames
-              .sort((a, b) => b.total - a.total)
+              .sort((a, b) => {
+                const aTotal = a.totalAmount ? parseFloat(a.totalAmount) : 0;
+                const bTotal = b.totalAmount ? parseFloat(b.totalAmount) : 0;
+                return bTotal - aTotal;
+              })
               .map((total) => (
                 <div
                   key={total.playerId}
@@ -217,7 +221,7 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
                     {total.playerName}
                   </div>
                   <span className="text-lg">
-                    ${total.total.toFixed(2)}
+                    ${total.totalAmount ? parseFloat(total.totalAmount).toFixed(2) : '0.00'}
                   </span>
                 </div>
               ))}

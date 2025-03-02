@@ -26,6 +26,15 @@ export const teams = pgTable("teams", {
   description: varchar("description"),
 });
 
+// Team members table for tracking team roles
+export const teamMembers = pgTable("team_members", {
+  id: serial("id").primaryKey(),
+  teamId: integer("team_id").notNull(),
+  userId: integer("user_id").notNull(),
+  role: varchar("role").notNull(), // 'AssistantCoach', 'TeamManager', 'Parent'
+  isOwner: boolean("is_owner").notNull().default(false),
+});
+
 export const players = pgTable("players", {
   id: serial("id").primaryKey(),
   name: varchar("name").notNull(),
@@ -77,6 +86,14 @@ export const insertTeamSchema = z.object({
   description: z.string().optional(),
 });
 
+// Schema for team membership
+export const insertTeamMemberSchema = z.object({
+  teamId: z.number(),
+  userId: z.number(),
+  role: z.string(),
+  isOwner: z.boolean().optional().default(false),
+});
+
 export const insertPlayerSchema = z.object({
   id: z.number().optional(),
   name: z.string(),
@@ -115,6 +132,7 @@ export const insertPaymentSchema = z.object({
 
 export type User = typeof users.$inferSelect;
 export type Team = typeof teams.$inferSelect;
+export type TeamMember = typeof teamMembers.$inferSelect;
 export type Player = typeof players.$inferSelect;
 export type Attendance = typeof attendance.$inferSelect;
 export type PracticeNote = typeof practiceNotes.$inferSelect;
@@ -122,6 +140,7 @@ export type Payment = typeof payments.$inferSelect;
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type InsertTeam = z.infer<typeof insertTeamSchema>;
+export type InsertTeamMember = z.infer<typeof insertTeamMemberSchema>;
 export type InsertPlayer = z.infer<typeof insertPlayerSchema>;
 export type InsertAttendance = z.infer<typeof insertAttendanceSchema>;
 export type InsertPracticeNote = z.infer<typeof insertPracticeNoteSchema>;

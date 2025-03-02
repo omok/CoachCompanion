@@ -32,6 +32,7 @@ export const players = pgTable("players", {
   teamId: integer("team_id").notNull(),
   parentId: integer("parent_id").notNull(),
   active: boolean("active").notNull().default(true),
+  jerseyNumber: varchar("jersey_number"),
 });
 
 export const attendance = pgTable("attendance", {
@@ -82,6 +83,7 @@ export const insertPlayerSchema = z.object({
   teamId: z.number(),
   parentId: z.number(),
   active: z.boolean().optional(),
+  jerseyNumber: z.string().optional(),
 });
 
 export const insertAttendanceSchema = z.object({

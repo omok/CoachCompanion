@@ -8,6 +8,7 @@ import { eq, and, gte, lte, sum, desc, inArray } from "drizzle-orm";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { pool } from "./db";
+import { Logger } from "./logger";
 
 const PostgresStore = connectPgSimple(session);
 
@@ -298,28 +299,55 @@ class Storage implements IStorage {
    * @returns Array of updated attendance records
    */
   async updateAttendance(teamId: number, date: Date, records: InsertAttendance[]): Promise<Attendance[]> {
+    Logger.info(`[Storage] updateAttendance started for team ${teamId}`, {
+      date: date.toISOString(),
+      recordCount: records.length,
+      presentCount: records.filter(r => r.present).length
+    });
+
     // Get the date string in YYYY-MM-DD format
     const dateStr = date.toLocaleDateString('en-CA');
     const startDate = new Date(`${dateStr}T00:00:00Z`);
     const endDate = new Date(`${dateStr}T23:59:59Z`);
 
-    // Delete existing records for this date and team
-    await db
-      .delete(attendance)
-      .where(
-        and(
-          eq(attendance.teamId, teamId),
-          gte(attendance.date, startDate),
-          lte(attendance.date, endDate)
-        )
-      );
+    Logger.debug(`[Storage] Date range for attendance delete operation`, {
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      dateStr
+    });
 
-    // Insert new records
-    if (records.length > 0) {
-      return await db.insert(attendance).values(records).returning();
+    try {
+      // Delete existing records for this date and team
+      const deleteResult = await db
+        .delete(attendance)
+        .where(
+          and(
+            eq(attendance.teamId, teamId),
+            gte(attendance.date, startDate),
+            lte(attendance.date, endDate)
+          )
+        );
+      
+      Logger.info(`[Storage] Deleted existing attendance records`, { deleteResult });
+
+      // Insert new records
+      if (records.length > 0) {
+        Logger.debug(`[Storage] Inserting ${records.length} attendance records`, {
+          firstRecord: records[0],
+          lastRecord: records[records.length - 1]
+        });
+        
+        const result = await db.insert(attendance).values(records).returning();
+        Logger.info(`[Storage] Successfully inserted ${result.length} attendance records`);
+        return result;
+      }
+
+      Logger.info(`[Storage] No attendance records to insert`);
+      return [];
+    } catch (error) {
+      Logger.error(`[Storage] Error updating attendance records`, { error });
+      throw error;
     }
-
-    return [];
   }
 
   /**

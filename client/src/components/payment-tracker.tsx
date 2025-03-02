@@ -3,7 +3,14 @@ import { Payment, Player, insertPaymentSchema } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useForm } from "react-hook-form";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -118,18 +125,27 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
               <label htmlFor="playerId" className="text-sm font-medium">
                 Player
               </label>
-              <select
-                id="playerId"
-                {...form.register("playerId", { valueAsNumber: true })}
-                className="w-full rounded-md border p-2"
-              >
-                <option value="">Select a player</option>
-                {players.map((player) => (
-                  <option key={player.id} value={player.id}>
-                    {player.name}
-                  </option>
-                ))}
-              </select>
+              <Controller
+                control={form.control}
+                name="playerId"
+                render={({ field }) => (
+                  <Select
+                    onValueChange={(value) => field.onChange(parseInt(value))}
+                    value={field.value ? field.value.toString() : ""}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select a player" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {players.map((player) => (
+                        <SelectItem key={player.id} value={player.id.toString()}>
+                          {player.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
               {form.formState.errors.playerId && (
                 <p className="text-sm text-red-500">
                   {form.formState.errors.playerId.message}

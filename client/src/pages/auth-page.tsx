@@ -52,6 +52,7 @@ export default function AuthPage() {
                       id="username"
                       {...loginForm.register("username")}
                       autoComplete="username"
+                      autoFocus
                     />
                   </div>
                   <div className="space-y-2">

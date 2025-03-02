@@ -74,6 +74,12 @@ export function PlayerDetails({
   // Calculate payment total
   const paymentTotal = payments?.reduce((sum, payment) => sum + Number(payment.amount), 0) || 0;
 
+  // Check if the current user is a parent of this player
+  const isParentOfPlayer = user?.role === "parent" && player?.parentId === user?.id;
+  
+  // Check if user can view this player's details (coach or parent of the player)
+  const canViewPlayerDetails = user?.role === "coach" || isParentOfPlayer;
+
   if (isLoadingPlayer) {
     return (
       <div className="flex justify-center items-center h-full py-8">
@@ -86,6 +92,22 @@ export function PlayerDetails({
     return (
       <div className="flex flex-col items-center justify-center py-8">
         <h1 className="text-2xl font-bold mb-4">Player Not Found</h1>
+        {showBackButton && (
+          <Button onClick={onBack}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+        )}
+      </div>
+    );
+  }
+
+  // If user is a parent but not the parent of this player, show access denied
+  if (user?.role === "parent" && !isParentOfPlayer) {
+    return (
+      <div className="flex flex-col items-center justify-center py-8">
+        <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
+        <p className="text-muted-foreground mb-4">You can only view details of your own children.</p>
         {showBackButton && (
           <Button onClick={onBack}>
             <ArrowLeft className="h-4 w-4 mr-2" />

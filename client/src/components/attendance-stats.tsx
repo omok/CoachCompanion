@@ -82,7 +82,11 @@ export function AttendanceStats({ teamId }: { teamId: number }) {
 
   if (!attendance || !players) return null;
 
-  const stats = calculateAttendanceStats(attendance, players);
+  // Filter to only include active players
+  const activePlayers = players.filter(player => player.active);
+  
+  // Only calculate stats for active players
+  const stats = calculateAttendanceStats(attendance, activePlayers);
 
   return (
     <div className="space-y-6">

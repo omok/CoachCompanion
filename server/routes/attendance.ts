@@ -1,6 +1,7 @@
 import { Router, Request } from "express";
 import { handleValidationError } from "./utils";
 import { IStorage } from "../storage";
+import { Logger } from "../logger";
 
 // Define interface for request params
 interface TeamParams {
@@ -44,9 +45,19 @@ export function createAttendanceRouter(storage: IStorage): Router {
    */
   router.post("/", async (req: Request<TeamParams>, res) => {
     try {
+      Logger.info(`[API] POST /api/teams/${req.params.teamId}/attendance request received`, {
+        userId: req.user?.id,
+        userRole: req.user?.role,
+        bodySize: JSON.stringify(req.body).length
+      });
+
       if (!req.isAuthenticated() || req.user.role !== "coach") {
+        Logger.warn(`[API] Unauthorized access attempt to record attendance`, {
+          path: req.originalUrl,
+          ip: req.ip
+        });
         return res.status(401).json({
-          error: 'Authentication Required',
+          error: 'Unauthorized',
           message: 'You must be logged in as a coach to record attendance'
         });
       }
@@ -68,9 +79,13 @@ export function createAttendanceRouter(storage: IStorage): Router {
       }
       
       if (team.coachId !== req.user.id) {
+        Logger.warn(`[API] Non-coach trying to record attendance`, {
+          userId: req.user.id,
+          userRole: req.user.role
+        });
         return res.status(403).json({
-          error: 'Permission Denied',
-          message: 'You do not have permission to record attendance for this team'
+          error: 'Forbidden',
+          message: 'You must be a coach to record attendance'
         });
       }
 
@@ -107,9 +122,19 @@ export function createAttendanceRouter(storage: IStorage): Router {
       }));
 
       // Update attendance records
+      Logger.info(`[API] Updating attendance for team ${teamId}`, {
+        date,
+        recordCount: records.length
+      });
       const attendance = await storage.updateAttendance(teamId, date, records);
+      Logger.info(`[API] Successfully updated attendance`, {
+        teamId,
+        date: date.toISOString(),
+        count: attendance.length
+      });
       res.status(201).json(attendance);
     } catch (err) {
+      Logger.error(`[API] Error recording attendance`, { error: err });
       handleValidationError(err, res);
     }
   });
@@ -133,6 +158,11 @@ export function createAttendanceRouter(storage: IStorage): Router {
    */
   router.get("/", async (req: Request<TeamParams, any, any, DateRangeQuery>, res) => {
     try {
+      Logger.info(`[API] GET /api/teams/${req.params.teamId}/attendance request received`, {
+        userId: req.user?.id,
+        userRole: req.user?.role
+      });
+
       if (!req.isAuthenticated()) {
         return res.status(401).json({
           error: 'Authentication Required',
@@ -189,11 +219,15 @@ export function createAttendanceRouter(storage: IStorage): Router {
       }
       
       const attendance = await storage.getAttendanceByTeamId(teamId);
+      Logger.info(`[API] Successfully retrieved attendance records`, {
+        teamId,
+        count: attendance.length
+      });
       res.json(attendance);
     } catch (err) {
-      console.error('Error fetching attendance:', err);
+      Logger.error(`[API] Error fetching attendance`, { error: err });
       res.status(500).json({
-        error: 'Server Error',
+        error: 'Internal Server Error',
         message: 'An error occurred while fetching attendance records'
       });
     }

@@ -1,9 +1,17 @@
+import React, { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Payment, Player, insertPaymentSchema } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useForm } from "react-hook-form";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -13,6 +21,8 @@ import { z } from "zod";
 import { Link } from "wouter";
 import { usePlayerContext } from "./player-context";
 import { useAuth } from "@/hooks/use-auth";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 const formSchema = z.object({
   playerId: z.coerce.number().positive("Please select a player"),
@@ -30,6 +40,7 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
   const { toast } = useToast();
   const { user } = useAuth();
   const { showPlayerDetails } = usePlayerContext();
+  const [showAllPlayers, setShowAllPlayers] = useState(false);
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -95,13 +106,32 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
 
   if (!players) return null;
 
-  const paymentTotalsWithNames = paymentTotals?.map((total) => ({
-    ...total,
-    playerName: players?.find((p) => p.id === total.playerId)?.name || "Unknown Player",
-  })) || [];
+  // Filter players based on the toggle state - only for the dropdown
+  const displayedPlayers = showAllPlayers 
+    ? players 
+    : players.filter(player => player.active);
+
+  // Always show all players in the payment totals
+  const paymentTotalsWithNames = paymentTotals
+    ?.map((total) => ({
+      ...total,
+      playerName: players?.find((p) => p.id === total.playerId)?.name || "Unknown Player",
+      isActive: players?.find((p) => p.id === total.playerId)?.active || false
+    })) || [];
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-end mb-4">
+        <div className="flex items-center space-x-2">
+          <Switch
+            id="show-all-players-payments"
+            checked={showAllPlayers}
+            onCheckedChange={setShowAllPlayers}
+          />
+          <Label htmlFor="show-all-players-payments">Show All Players in Dropdown</Label>
+        </div>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle>Add Payment</CardTitle>
@@ -118,18 +148,27 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
               <label htmlFor="playerId" className="text-sm font-medium">
                 Player
               </label>
-              <select
-                id="playerId"
-                {...form.register("playerId", { valueAsNumber: true })}
-                className="w-full rounded-md border p-2"
-              >
-                <option value="">Select a player</option>
-                {players.map((player) => (
-                  <option key={player.id} value={player.id}>
-                    {player.name}
-                  </option>
-                ))}
-              </select>
+              <Controller
+                control={form.control}
+                name="playerId"
+                render={({ field }) => (
+                  <Select
+                    onValueChange={(value) => field.onChange(parseInt(value))}
+                    value={field.value ? field.value.toString() : ""}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select a player" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {displayedPlayers.map((player) => (
+                        <SelectItem key={player.id} value={player.id.toString()}>
+                          {player.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
               {form.formState.errors.playerId && (
                 <p className="text-sm text-red-500">
                   {form.formState.errors.playerId.message}
@@ -199,7 +238,7 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
       <Card>
         <CardHeader>
           <CardTitle>Payment Totals</CardTitle>
-          <CardDescription>Total payments by player</CardDescription>
+          <CardDescription>Total payments by player (all players)</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -214,11 +253,18 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
                   key={total.playerId}
                   className="flex justify-between items-center border-b pb-2"
                 >
-                  <div 
-                    className="font-medium text-primary hover:text-primary/80 cursor-pointer"
-                    onClick={() => showPlayerDetails(teamId, total.playerId)}
-                  >
-                    {total.playerName}
+                  <div className="flex items-center">
+                    <div 
+                      className="font-medium text-primary hover:text-primary/80 cursor-pointer"
+                      onClick={() => showPlayerDetails(teamId, total.playerId)}
+                    >
+                      {total.playerName}
+                    </div>
+                    {!total.isActive && (
+                      <span className="ml-2 px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-700">
+                        Inactive
+                      </span>
+                    )}
                   </div>
                   <span className="text-lg">
                     ${total.totalAmount ? parseFloat(total.totalAmount).toFixed(2) : '0.00'}

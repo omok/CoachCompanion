@@ -1,3 +1,4 @@
+import React, { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Player, insertPlayerSchema } from "@shared/schema";
 import { useAuth } from "@/hooks/use-auth";
@@ -23,14 +24,24 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Loader2, UserPlus } from "lucide-react";
+import { Loader2, UserPlus, EyeIcon } from "lucide-react";
 import { usePlayerContext } from "./player-context";
+import { Switch } from "@/components/ui/switch";
+import { toast } from "@/hooks/use-toast";
 
 export function TeamRoster({ teamId }: { teamId: number }) {
   const { user } = useAuth();
   const { showPlayerDetails } = usePlayerContext();
+  const [showAllPlayers, setShowAllPlayers] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const form = useForm({
     resolver: zodResolver(insertPlayerSchema.omit({ teamId: true })),
+    defaultValues: {
+      name: "",
+      parentId: 0,
+      jerseyNumber: "",
+      active: true
+    }
   });
 
   const { data: players, isLoading } = useQuery<Player[]>({
@@ -43,11 +54,28 @@ export function TeamRoster({ teamId }: { teamId: number }) {
         ...data,
         teamId,
       });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Failed to add player");
+      }
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/teams/${teamId}/players`] });
+      form.reset();
+      setDialogOpen(false);
+      toast({
+        title: "Success",
+        description: "Player added successfully",
+      });
     },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add player",
+        variant: "destructive",
+      });
+    }
   });
 
   if (isLoading) {
@@ -58,57 +86,96 @@ export function TeamRoster({ teamId }: { teamId: number }) {
     );
   }
 
+  // Filter players based on the toggle state
+  const displayedPlayers = showAllPlayers 
+    ? players 
+    : players?.filter(player => player.active);
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-semibold">Team Roster</h2>
-        {user?.role === "coach" && (
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button>
-                <UserPlus className="h-4 w-4 mr-2" />
-                Add Player
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add New Player</DialogTitle>
-              </DialogHeader>
-              <form
-                onSubmit={form.handleSubmit((data) => addPlayerMutation.mutate(data))}
-                className="space-y-4"
-              >
-                <div className="space-y-2">
-                  <Label htmlFor="name">Player Name</Label>
-                  <Input id="name" {...form.register("name")} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="parentId">Parent ID</Label>
-                  <Input
-                    id="parentId"
-                    type="number"
-                    {...form.register("parentId", { valueAsNumber: true })}
-                  />
-                </div>
-                <Button type="submit" disabled={addPlayerMutation.isPending}>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="show-all-players"
+              checked={showAllPlayers}
+              onCheckedChange={setShowAllPlayers}
+            />
+            <Label htmlFor="show-all-players">Show All Players</Label>
+          </div>
+          {user?.role === "coach" && (
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <UserPlus className="h-4 w-4 mr-2" />
                   Add Player
                 </Button>
-              </form>
-            </DialogContent>
-          </Dialog>
-        )}
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add New Player</DialogTitle>
+                </DialogHeader>
+                <form
+                  onSubmit={form.handleSubmit((data) => addPlayerMutation.mutate(data))}
+                  className="space-y-4"
+                >
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Player Name</Label>
+                    <Input id="name" {...form.register("name")} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="parentId">Parent ID (Optional)</Label>
+                    <Input
+                      id="parentId"
+                      type="number"
+                      {...form.register("parentId", { 
+                        setValueAs: (value) => value === "" ? 0 : parseInt(value, 10) 
+                      })}
+                      placeholder="0"
+                    />
+                    <p className="text-xs text-muted-foreground">Leave empty to set as 0</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="jerseyNumber">Jersey Number (Optional)</Label>
+                    <Input
+                      id="jerseyNumber"
+                      {...form.register("jerseyNumber")}
+                      placeholder="#"
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={addPlayerMutation.isPending}>
+                      {addPlayerMutation.isPending ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Adding...
+                        </>
+                      ) : (
+                        "Add Player"
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
       </div>
 
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead>Name</TableHead>
+            <TableHead>Jersey #</TableHead>
             <TableHead>Status</TableHead>
-            {user?.role === "coach" && <TableHead>Parent ID</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
-          {players?.map((player) => (
+          {displayedPlayers?.map((player) => (
             <TableRow 
               key={player.id} 
               className="hover:bg-muted/50 cursor-pointer" 
@@ -119,6 +186,7 @@ export function TeamRoster({ teamId }: { teamId: number }) {
                   {player.name}
                 </div>
               </TableCell>
+              <TableCell>{player.jerseyNumber || "-"}</TableCell>
               <TableCell>
                 <span
                   className={`px-2 py-1 rounded-full text-xs ${
@@ -130,9 +198,6 @@ export function TeamRoster({ teamId }: { teamId: number }) {
                   {player.active ? "Active" : "Inactive"}
                 </span>
               </TableCell>
-              {user?.role === "coach" && (
-                <TableCell>{player.parentId}</TableCell>
-              )}
             </TableRow>
           ))}
         </TableBody>

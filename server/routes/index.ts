@@ -26,9 +26,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication
   setupAuth(app);
 
-  // Initialize test data
-  await initializeTestData();
-
   // Register routes
   app.use("/api/teams", createTeamsRouter(storage));
   app.use("/api/teams/:teamId/players", createPlayersRouter(storage));

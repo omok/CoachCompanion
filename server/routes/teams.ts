@@ -2,6 +2,8 @@ import { Router } from "express";
 import { insertTeamSchema } from "@shared/schema";
 import { handleValidationError } from "./utils";
 import { IStorage } from "../storage";
+import express from 'express';
+import { requireTeamRolePermission } from '../utils/authorization';
 
 /**
  * Creates and configures the teams router
@@ -10,7 +12,7 @@ import { IStorage } from "../storage";
  * @returns Express router configured with team routes
  */
 export function createTeamsRouter(storage: IStorage): Router {
-  const router = Router();
+  const router = express.Router();
 
   /**
    * Create a new team
@@ -94,6 +96,34 @@ export function createTeamsRouter(storage: IStorage): Router {
         error: 'Server Error',
         message: 'An error occurred while fetching teams'
       });
+    }
+  });
+
+  /**
+   * Update team settings
+   * Requires 'manageTeamSettings' permission
+   */
+  router.put('/:teamId', requireTeamRolePermission('manageTeamSettings'), async (req, res) => {
+    try {
+      const teamId = parseInt(req.params.teamId, 10);
+      if (isNaN(teamId)) {
+        return res.status(400).json({ error: 'Invalid team ID' });
+      }
+
+      const { name, description, seasonStartDate, seasonEndDate, teamFee } = req.body;
+      
+      const updatedTeam = await storage.updateTeam(teamId, {
+        name,
+        description,
+        seasonStartDate,
+        seasonEndDate,
+        teamFee
+      });
+
+      res.json(updatedTeam);
+    } catch (error) {
+      console.error('Error updating team settings:', error);
+      res.status(500).json({ error: 'Failed to update team settings' });
     }
   });
 

@@ -1,4 +1,4 @@
-import { pgTable, varchar, serial, integer, boolean, timestamp, json, numeric } from "drizzle-orm/pg-core";
+import { pgTable, varchar, serial, integer, boolean, timestamp, json, numeric, date } from "drizzle-orm/pg-core";
 import { z } from "zod";
 
 // Add session table definition to prevent Drizzle from trying to drop it
@@ -24,6 +24,9 @@ export const teams = pgTable("teams", {
   name: varchar("name").notNull(),
   coachId: integer("coach_id").notNull(),
   description: varchar("description"),
+  seasonStartDate: date("season_start_date"),
+  seasonEndDate: date("season_end_date"),
+  teamFee: numeric("team_fee"),
 });
 
 // Team members table for tracking team roles
@@ -84,6 +87,11 @@ export const insertTeamSchema = z.object({
   name: z.string(),
   coachId: z.number(),
   description: z.string().optional(),
+  seasonStartDate: z.string().transform(date => date ? new Date(date) : undefined).optional(),
+  seasonEndDate: z.string().transform(date => date ? new Date(date) : undefined).optional(),
+  teamFee: z.string().transform(val => val ? Number(val) : undefined)
+    .pipe(z.number().positive().multipleOf(0.01).optional())
+    .optional(),
 });
 
 // Schema for team membership

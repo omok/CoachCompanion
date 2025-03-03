@@ -1,7 +1,7 @@
 import {
-  users, teams, players, attendance, practiceNotes, payments,
-  type User, type Team, type Player, type Attendance, type PracticeNote, type Payment,
-  type InsertUser, type InsertTeam, type InsertPlayer, type InsertAttendance, type InsertPracticeNote, type InsertPayment
+  users, teams, players, attendance, practiceNotes, payments, teamMembers,
+  type User, type Team, type Player, type Attendance, type PracticeNote, type Payment, type TeamMember,
+  type InsertUser, type InsertTeam, type InsertPlayer, type InsertAttendance, type InsertPracticeNote, type InsertPayment, type InsertTeamMember
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, lte, sum, desc, inArray } from "drizzle-orm";
@@ -31,6 +31,13 @@ export interface IStorage {
   getTeamsByCoachId(coachId: number): Promise<Team[]>;
   getTeamsByParentId(parentId: number): Promise<Team[]>;
   getTeam(id: number): Promise<Team | undefined>;
+  getTeams(coachId: number): Promise<Team[]>;
+  getTeamById(id: number): Promise<Team | undefined>;
+  updateTeam(id: number, updates: Partial<Omit<InsertTeam, 'seasonStartDate' | 'seasonEndDate' | 'teamFee'>> & {
+    seasonStartDate?: string | null;
+    seasonEndDate?: string | null;
+    teamFee?: string | number | null;
+  }): Promise<Team>;
 
   // Player operations
   createPlayer(player: InsertPlayer): Promise<Player>;
@@ -54,6 +61,13 @@ export interface IStorage {
   getPaymentsByPlayerId(playerId: number, startDate?: Date, endDate?: Date): Promise<Payment[]>;
   getPaymentsByTeamId(teamId: number, startDate?: Date, endDate?: Date): Promise<Payment[]>;
   getPaymentSummaryByTeam(teamId: number): Promise<{ playerId: number; totalAmount: string | null }[]>;
+
+  // Team Member operations
+  createTeamMember(teamMember: InsertTeamMember): Promise<TeamMember>;
+  getTeamMembers(teamId: number): Promise<TeamMember[]>;
+  getTeamMembersByUserId(userId: number): Promise<(TeamMember & { teamName?: string })[]>;
+  updateTeamMember(id: number, updates: Partial<InsertTeamMember>): Promise<TeamMember>;
+  deleteTeamMember(id: number): Promise<void>;
 }
 
 /**
@@ -79,7 +93,7 @@ export const sessionStore = new PostgresStore({
  * - Data Mapper: Maps between database records and domain objects
  * - Transaction Script: Encapsulates business logic in methods
  */
-class Storage implements IStorage {
+export class Storage implements IStorage {
   /**
    * Get a user by ID
    * 
@@ -625,6 +639,191 @@ class Storage implements IStorage {
     return allNotes.filter(note => 
       note.playerIds && note.playerIds.includes(playerId)
     );
+  }
+
+  /**
+   * Get teams by coach ID
+   */
+  async getTeams(coachId: number): Promise<Team[]> {
+    try {
+      return await db.select().from(teams).where(eq(teams.coachId, coachId));
+    } catch (error) {
+      Logger.error("Error fetching teams by coach ID", error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Get team by ID
+   */
+  async getTeamById(id: number): Promise<Team | undefined> {
+    try {
+      const result = await db.select().from(teams).where(eq(teams.id, id));
+      return result[0];
+    } catch (error) {
+      Logger.error("Error fetching team by ID", error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Update a team's information
+   */
+  async updateTeam(id: number, updates: Partial<Omit<InsertTeam, 'seasonStartDate' | 'seasonEndDate' | 'teamFee'>> & {
+    seasonStartDate?: string | null;
+    seasonEndDate?: string | null;
+    teamFee?: string | number | null;
+  }): Promise<Team> {
+    try {
+      // Convert teamFee to string if it's a number
+      const sanitizedUpdates = {
+        ...updates,
+        teamFee: typeof updates.teamFee === 'number' ? String(updates.teamFee) : updates.teamFee
+      };
+      
+      const result = await db.update(teams)
+        .set(sanitizedUpdates)
+        .where(eq(teams.id, id))
+        .returning();
+      
+      if (!result.length) {
+        throw new Error(`Team with ID ${id} not found`);
+      }
+      
+      return result[0];
+    } catch (error) {
+      Logger.error("Error updating team", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create a new team member
+   * 
+   * This method adds a user to a team with a specific role
+   * 
+   * @param teamMember - The team member data to insert
+   * @returns The created team member with ID assigned
+   */
+  async createTeamMember(teamMember: InsertTeamMember): Promise<TeamMember> {
+    try {
+      const [newTeamMember] = await db.insert(teamMembers).values(teamMember).returning();
+      return newTeamMember;
+    } catch (error) {
+      Logger.error("Error creating team member", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all members of a team
+   * 
+   * @param teamId - The team's unique identifier
+   * @returns Array of team members for the specified team
+   */
+  async getTeamMembers(teamId: number): Promise<TeamMember[]> {
+    try {
+      return await db.select().from(teamMembers).where(eq(teamMembers.teamId, teamId));
+    } catch (error) {
+      Logger.error("Error fetching team members", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all team memberships for a user
+   * 
+   * This method retrieves all teams a user is a member of, along with their role
+   * in each team. It includes the team name for convenience.
+   * 
+   * @param userId - The user's unique identifier
+   * @returns Array of team memberships with team names
+   */
+  async getTeamMembersByUserId(userId: number): Promise<(TeamMember & { teamName?: string })[]> {
+    try {
+      console.log(`[Storage] Getting team memberships for userId: ${userId}`);
+      
+      // Get team memberships
+      const query = db.select().from(teamMembers).where(eq(teamMembers.userId, userId));
+      console.log('[Storage] Team memberships query:', query.toSQL().sql);
+      
+      const memberships = await query;
+      console.log(`[Storage] Found ${memberships.length} team memberships for userId: ${userId}`, memberships);
+      
+      // If no memberships, return empty array
+      if (memberships.length === 0) {
+        console.log(`[Storage] No team memberships found for userId: ${userId}`);
+        return [];
+      }
+      
+      // Get team names
+      const teamIds = memberships.map(membership => membership.teamId);
+      console.log(`[Storage] Getting team names for teamIds:`, teamIds);
+      
+      const teamQuery = db
+        .select({ id: teams.id, name: teams.name })
+        .from(teams)
+        .where(inArray(teams.id, teamIds));
+      console.log('[Storage] Team names query:', teamQuery.toSQL().sql);
+      
+      const teamInfo = await teamQuery;
+      console.log(`[Storage] Found ${teamInfo.length} teams`, teamInfo);
+      
+      // Combine membership data with team names
+      const result = memberships.map(membership => {
+        const team = teamInfo.find(t => t.id === membership.teamId);
+        return {
+          ...membership,
+          teamName: team?.name
+        };
+      });
+      
+      console.log(`[Storage] Returning combined result for userId: ${userId}`, result);
+      return result;
+    } catch (error) {
+      console.error(`[Storage] Error fetching team memberships for userId: ${userId}`, error);
+      Logger.error("Error fetching user team memberships", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update a team member's information
+   * 
+   * @param id - The team member's unique identifier
+   * @param updates - The updated team member data
+   * @returns The updated team member
+   */
+  async updateTeamMember(id: number, updates: Partial<InsertTeamMember>): Promise<TeamMember> {
+    try {
+      const result = await db.update(teamMembers)
+        .set(updates)
+        .where(eq(teamMembers.id, id))
+        .returning();
+      
+      if (!result.length) {
+        throw new Error(`Team member with ID ${id} not found`);
+      }
+      
+      return result[0];
+    } catch (error) {
+      Logger.error("Error updating team member", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a team member
+   * 
+   * @param id - The team member's unique identifier
+   */
+  async deleteTeamMember(id: number): Promise<void> {
+    try {
+      await db.delete(teamMembers).where(eq(teamMembers.id, id));
+    } catch (error) {
+      Logger.error("Error deleting team member", error);
+      throw error;
+    }
   }
 }
 

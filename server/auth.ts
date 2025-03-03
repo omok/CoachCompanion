@@ -6,6 +6,7 @@ import crypto from "crypto";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
+import { sessionStore } from "./storage";
 import { User as SelectUser } from "@shared/schema";
 
 declare global {
@@ -47,7 +48,7 @@ export function setupAuth(app: Express) {
     secret: process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex'),
     resave: false,
     saveUninitialized: false,
-    store: storage.sessionStore,
+    store: sessionStore,
     cookie: {
       secure: process.env.NODE_ENV === 'production',
       httpOnly: true,
@@ -59,6 +60,26 @@ export function setupAuth(app: Express) {
   app.use(session(sessionSettings));
   app.use(passport.initialize());
   app.use(passport.session());
+
+  // Log middleware to track session state
+  app.use((req, res, next) => {
+    // Only log for API routes
+    if (req.path.startsWith('/api')) {
+      console.log(`[Auth Debug] Path: ${req.path}, isAuthenticated: ${req.isAuthenticated()}, userId in session: ${req.session.userId || 'not set'}`);
+      if (req.user) {
+        console.log(`[Auth Debug] User object: ${JSON.stringify(req.user)}`);
+        
+        // Sync passport user ID with session userId
+        if (!req.session.userId && req.user.id) {
+          console.log(`[Auth Debug] Setting session.userId from req.user.id: ${req.user.id}`);
+          req.session.userId = req.user.id;
+        }
+      } else {
+        console.log('[Auth Debug] No user object in request');
+      }
+    }
+    next();
+  });
 
   passport.use(
     new LocalStrategy(async (username, password, done) => {
@@ -75,12 +96,18 @@ export function setupAuth(app: Express) {
     }),
   );
 
-  passport.serializeUser((user, done) => done(null, user.id));
+  passport.serializeUser((user, done) => {
+    console.log(`[Auth] Serializing user: ${user.id}`);
+    done(null, user.id);
+  });
+  
   passport.deserializeUser(async (id: number, done) => {
     try {
+      console.log(`[Auth] Deserializing user: ${id}`);
       const user = await storage.getUser(id);
       done(null, user);
     } catch (error) {
+      console.error(`[Auth] Error deserializing user: ${id}`, error);
       done(error);
     }
   });
@@ -99,6 +126,11 @@ export function setupAuth(app: Express) {
 
       req.login(user, (err) => {
         if (err) return next(err);
+        
+        // Explicitly set userId in session
+        req.session.userId = user.id;
+        console.log(`[Auth] User registered and logged in. Set session.userId to ${user.id}`);
+        
         res.status(201).json(user);
       });
     } catch (error) {
@@ -107,10 +139,22 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/login", passport.authenticate("local"), (req, res) => {
+    // Explicitly set userId in session after login
+    if (req.user) {
+      req.session.userId = req.user.id;
+      console.log(`[Auth] User logged in. Set session.userId to ${req.user.id}`);
+    }
+    
     res.status(200).json(req.user);
   });
 
   app.post("/api/logout", (req, res, next) => {
+    // Clear userId from session
+    if (req.session) {
+      req.session.userId = undefined;
+      console.log(`[Auth] Cleared session.userId during logout`);
+    }
+    
     req.logout((err) => {
       if (err) return next(err);
       res.sendStatus(200);
@@ -119,6 +163,13 @@ export function setupAuth(app: Express) {
 
   app.get("/api/user", (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    // Sync userId in session
+    if (req.user && !req.session.userId) {
+      req.session.userId = req.user.id;
+      console.log(`[Auth] Synced session.userId to ${req.user.id} in /api/user endpoint`);
+    }
+    
     res.json(req.user);
   });
 }

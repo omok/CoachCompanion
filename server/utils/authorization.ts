@@ -27,18 +27,48 @@ declare module 'express-session' {
 }
 
 /**
+ * Helper function to get the user ID from either session.userId, req.user, or passport data
+ */
+function getUserId(req: Request): number | null {
+  // Try getting from session.userId
+  if (req.session.userId) {
+    return req.session.userId;
+  }
+  
+  // Try getting from req.user if authenticated
+  if (req.isAuthenticated() && req.user) {
+    return (req.user as any).id;
+  }
+  
+  // Try getting from passport session data
+  const passportSession = (req.session as any)?.passport;
+  if (passportSession && passportSession.user) {
+    return passportSession.user;
+  }
+  
+  return null;
+}
+
+/**
  * Middleware to check if user has a specific user type permission
  */
 export function requireUserTypePermission(permission: keyof UserTypePermissions) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      if (!req.session.userId) {
+      const userId = getUserId(req);
+      
+      if (!userId) {
+        console.log('[Auth] requireUserTypePermission - No user ID found', { 
+          session: req.session,
+          isAuthenticated: req.isAuthenticated(),
+          user: req.user
+        });
         return res.status(401).json({ error: 'Unauthorized' });
       }
 
       // Get user role from database
       const user = await db.query.users.findFirst({
-        where: eq(users.id, req.session.userId)
+        where: eq(users.id, userId)
       });
 
       if (!user) {
@@ -62,14 +92,21 @@ export function requireUserTypePermission(permission: keyof UserTypePermissions)
 /**
  * Middleware to check if user has a specific team role permission
  */
-export function requireTeamRolePermission(teamParam: string, permission: keyof TeamRolePermissions) {
+export function requireTeamRolePermission(permission: keyof TeamRolePermissions) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      if (!req.session.userId) {
+      const userId = getUserId(req);
+      
+      if (!userId) {
+        console.log('[Auth] requireTeamRolePermission - No user ID found', { 
+          session: req.session,
+          isAuthenticated: req.isAuthenticated(),
+          user: req.user
+        });
         return res.status(401).json({ error: 'Unauthorized' });
       }
 
-      const teamId = parseInt(req.params[teamParam], 10);
+      const teamId = parseInt(req.params.teamId, 10);
       if (isNaN(teamId)) {
         return res.status(400).json({ error: 'Invalid team ID' });
       }
@@ -84,7 +121,7 @@ export function requireTeamRolePermission(teamParam: string, permission: keyof T
       }
 
       // Check if user is team owner
-      if (team.coachId === req.session.userId) {
+      if (team.coachId === userId) {
         // Owner has all permissions
         return next();
       }
@@ -93,7 +130,7 @@ export function requireTeamRolePermission(teamParam: string, permission: keyof T
       const membership = await db.query.teamMembers.findFirst({
         where: and(
           eq(teamMembers.teamId, teamId),
-          eq(teamMembers.userId, req.session.userId)
+          eq(teamMembers.userId, userId)
         )
       });
 
@@ -124,7 +161,7 @@ export function requireTeamRolePermission(teamParam: string, permission: keyof T
  * });
  * 
  * // Only team owners or roles with addPlayer permission can add players
- * router.post('/teams/:teamId/players', requireTeamRolePermission('teamId', 'addPlayer'), async (req, res) => {
+ * router.post('/teams/:teamId/players', requireTeamRolePermission('addPlayer'), async (req, res) => {
  *   // Route implementation
  * });
  */ 

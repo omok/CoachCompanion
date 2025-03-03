@@ -5,6 +5,7 @@ import { TeamRoster } from "@/components/team-roster";
 import { AttendanceTracker } from "@/components/attendance-tracker";
 import { PracticeNotes } from "@/components/practice-notes";
 import { PaymentTracker } from "@/components/payment-tracker";
+import { TeamSettings } from "@/components/team-settings";
 import { useQuery } from "@tanstack/react-query";
 import { Team } from "@shared/schema";
 import {
@@ -15,13 +16,14 @@ import {
   Book,
   DollarSign,
   Loader2,
+  Settings,
 } from "lucide-react";
 import { CreateTeamDialog } from "@/components/create-team-dialog";
 
 export default function Dashboard() {
   const { user, logoutMutation } = useAuth();
   const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<"roster" | "attendance" | "notes" | "payments">("roster");
+  const [activeTab, setActiveTab] = useState<"roster" | "attendance" | "notes" | "payments" | "settings">("roster");
 
   const { data: teams, isLoading: isLoadingTeams } = useQuery<Team[]>({
     queryKey: ["/api/teams"],
@@ -101,6 +103,16 @@ export default function Dashboard() {
                   Payments
                 </Button>
               )}
+              {user?.role === "coach" && (
+                <Button
+                  variant={activeTab === "settings" ? "secondary" : "ghost"}
+                  className="w-full justify-start"
+                  onClick={() => setActiveTab("settings")}
+                >
+                  <Settings className="h-4 w-4 mr-2" />
+                  Settings
+                </Button>
+              )}
             </nav>
           </div>
         )}
@@ -132,6 +144,9 @@ export default function Dashboard() {
             {activeTab === "notes" && user?.role === "coach" && <PracticeNotes teamId={selectedTeamId} />}
             {activeTab === "payments" && user?.role === "coach" && (
               <PaymentTracker teamId={selectedTeamId} />
+            )}
+            {activeTab === "settings" && user?.role === "coach" && (
+              <TeamSettings teamId={selectedTeamId} />
             )}
           </>
         )}

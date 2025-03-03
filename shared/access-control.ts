@@ -48,6 +48,8 @@ export interface TeamRolePermissions {
   removeTeamMembers: boolean;
   /** Can delete the entire team */
   deleteTeam: boolean;
+  /** Can access and modify team settings (name, dates, fees, etc.) */
+  manageTeamSettings: boolean;
 }
 
 /**
@@ -89,6 +91,7 @@ export const userTypePermissions: Record<UserType, UserTypePermissions> = {
  * | inviteTeamMembers |   ✓   |       ✗        |      ✗      |   ✗                  |
  * | removeTeamMembers |   ✓   |       ✗        |      ✗      |   ✗                  |
  * | deleteTeam        |   ✓   |       ✗        |      ✗      |   ✗                  |
+ * | manageTeamSettings|   ✓   |       ✗        |      ✓      |   ✗                  |
  * ------------------------------------------------------------------------------------
  */
 export const teamRolePermissions: Record<TeamRole, TeamRolePermissions> = {
@@ -101,6 +104,7 @@ export const teamRolePermissions: Record<TeamRole, TeamRolePermissions> = {
     inviteTeamMembers: true,
     removeTeamMembers: true,
     deleteTeam: true,
+    manageTeamSettings: true,
   },
   AssistantCoach: {
     seeTeamRoster: true,
@@ -111,6 +115,7 @@ export const teamRolePermissions: Record<TeamRole, TeamRolePermissions> = {
     inviteTeamMembers: false,
     removeTeamMembers: false,
     deleteTeam: false,
+    manageTeamSettings: false,
   },
   TeamManager: {
     seeTeamRoster: true,
@@ -121,6 +126,7 @@ export const teamRolePermissions: Record<TeamRole, TeamRolePermissions> = {
     inviteTeamMembers: false,
     removeTeamMembers: false,
     deleteTeam: false,
+    manageTeamSettings: true,
   },
   Parent: {
     seeTeamRoster: true,
@@ -131,6 +137,7 @@ export const teamRolePermissions: Record<TeamRole, TeamRolePermissions> = {
     inviteTeamMembers: false,
     removeTeamMembers: false,
     deleteTeam: false,
+    manageTeamSettings: false,
   },
 };
 

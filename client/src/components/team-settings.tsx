@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocation } from "wouter";
 import { useForm } from 'react-hook-form';
@@ -18,13 +18,23 @@ import { useTeamMember } from '../hooks/useTeamMember';
 import { apiRequest } from '../lib/queryClient';
 import { useAuth } from '../hooks/use-auth';
 
+// Define TeamSettings type with proper validation markers
 type TeamSettings = {
-  name: string;
-  description: string;
-  seasonStartDate: string;
-  seasonEndDate: string;
-  teamFee: string;
+  name: string;           // Required
+  description: string;    // Optional
+  seasonStartDate: string; // Optional
+  seasonEndDate: string;  // Optional
+  teamFee: string;        // Optional
 };
+
+// For processed form data that can have nulls
+interface ProcessedTeamSettings {
+  name: string;
+  description: string | null;
+  seasonStartDate: string | null;
+  seasonEndDate: string | null;
+  teamFee: string | null;
+}
 
 interface TeamSettingsProps {
   teamId: number;
@@ -41,29 +51,85 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
   const [success, setSuccess] = useState<string | null>(null);
   const [showDebug, setShowDebug] = useState(true);
   const [debugResponse, setDebugResponse] = useState<any>(null);
+  const initialLoadAttempted = useRef(false);
+  const [directFetchResponse, setDirectFetchResponse] = useState<any>(null);
+  const [directFetchError, setDirectFetchError] = useState<string | null>(null);
+  const [isFetching, setIsFetching] = useState(false);
 
   // IMPORTANT: All hooks must be called unconditionally before any conditional logic
-  // Fetch team data - call useQuery unconditionally
+  // Fetch team data - call useQuery unconditionally - don't disable based on permissions
   const { 
     data: team, 
-    isLoading: isTeamLoading 
+    isLoading: isTeamLoading,
+    error: teamError,
+    refetch: refetchTeam
   } = useQuery({
-    queryKey: [`/api/teams/${teamId}`],
+    queryKey: [`team-${teamId}`],
     queryFn: async () => {
+      console.log(`[TeamSettings] Fetching team data for teamId: ${teamId}`);
       try {
-        const response = await fetch(`/api/teams/${teamId}`);
-        if (!response.ok) throw new Error('Failed to fetch team');
-        return response.json();
+        const response = await fetch(`/api/teams/${teamId}`, {
+          credentials: 'include' // Ensure cookies are sent
+        });
+        
+        // Check content type to detect HTML responses
+        const contentType = response.headers.get('content-type') || '';
+        const isJson = contentType.includes('application/json');
+        
+        if (!response.ok) {
+          // Try to safely get response text - could be HTML or JSON
+          const responseText = await response.text();
+          
+          // Log the full response for debugging
+          console.error(`[TeamSettings] Error fetching team ${teamId}:`, {
+            status: response.status,
+            contentType,
+            responseText: responseText.substring(0, 200) + '...' // Show first 200 chars
+          });
+          
+          // If it's HTML, provide a more helpful error
+          if (responseText.trim().startsWith('<!DOCTYPE') || responseText.trim().startsWith('<html')) {
+            throw new Error(`Server returned HTML instead of JSON (${response.status}). You may need to log in again.`);
+          }
+          
+          // Try to parse as JSON if it looks like JSON
+          let errorMessage = `Failed to fetch team: ${response.status}`;
+          if (isJson || responseText.trim().startsWith('{')) {
+            try {
+              const errorData = JSON.parse(responseText);
+              errorMessage = errorData.error || errorMessage;
+            } catch (e) {
+              // If parsing fails, use the text directly
+              errorMessage = `${errorMessage} - ${responseText.substring(0, 100)}`;
+            }
+          } else {
+            // Use plain text error
+            errorMessage = `${errorMessage} - ${responseText.substring(0, 100)}`;
+          }
+          
+          throw new Error(errorMessage);
+        }
+        
+        // Check if response is actually JSON
+        if (!isJson) {
+          const text = await response.text();
+          console.error('[TeamSettings] Received non-JSON response:', text.substring(0, 200));
+          throw new Error('Server returned non-JSON response. You may need to log in again.');
+        }
+        
+        const data = await response.json();
+        console.log(`[TeamSettings] Successfully fetched team data:`, data);
+        return data;
       } catch (error) {
-        console.error(`Error fetching team ${teamId}:`, error);
-        return null; // Return null instead of throwing to avoid React Query retries
+        console.error(`[TeamSettings] Error fetching team ${teamId}:`, error);
+        throw error; // Let React Query handle the error
       }
     },
-    // Only enable this query if the user has permission
-    enabled: canManageTeamSettings(teamId),
+    retry: 1, // Only retry once
+    staleTime: 300000, // 5 minutes
   });
 
-  // Setup the form - must be called unconditionally
+  // Setup the form with validation
   const { register, handleSubmit, formState: { errors }, reset } = useForm<TeamSettings>({
     defaultValues: {
       name: '',
@@ -77,11 +143,59 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
   // Update form values when team data loads - must be after form setup
   useEffect(() => {
     if (team) {
+      console.log(`[TeamSettings] Resetting form with team data:`, team);
+      
+      // For date fields, just set the YYYY-MM-DD strings directly
+      // If they're already in that format, no need to parse and reformat
+      let startDate = '';
+      let endDate = '';
+      
+      if (team.seasonStartDate) {
+        // The date should already be in YYYY-MM-DD format from the server
+        // Just use it directly to avoid timezone issues
+        if (typeof team.seasonStartDate === 'string') {
+          // Check if already in YYYY-MM-DD format
+          if (/^\d{4}-\d{2}-\d{2}$/.test(team.seasonStartDate)) {
+            startDate = team.seasonStartDate;
+          } else {
+            // For compatibility with other date formats, use date-fns carefully
+            try {
+              // Parse the date in UTC to avoid timezone shifts
+              const parsedDate = new Date(team.seasonStartDate);
+              startDate = format(parsedDate, 'yyyy-MM-dd');
+            } catch (err) {
+              console.error('[TeamSettings] Error formatting start date:', err);
+            }
+          }
+        }
+      }
+      
+      if (team.seasonEndDate) {
+        // Same approach for end date
+        if (typeof team.seasonEndDate === 'string') {
+          // Check if already in YYYY-MM-DD format
+          if (/^\d{4}-\d{2}-\d{2}$/.test(team.seasonEndDate)) {
+            endDate = team.seasonEndDate;
+          } else {
+            // For compatibility with other date formats, use date-fns carefully
+            try {
+              // Parse the date in UTC to avoid timezone shifts
+              const parsedDate = new Date(team.seasonEndDate);
+              endDate = format(parsedDate, 'yyyy-MM-dd');
+            } catch (err) {
+              console.error('[TeamSettings] Error formatting end date:', err);
+            }
+          }
+        }
+      }
+      
+      console.log('[TeamSettings] Using dates for form:', { startDate, endDate });
+      
       reset({
         name: team.name || '',
         description: team.description || '',
-        seasonStartDate: team.seasonStartDate ? format(new Date(team.seasonStartDate), 'yyyy-MM-dd') : '',
-        seasonEndDate: team.seasonEndDate ? format(new Date(team.seasonEndDate), 'yyyy-MM-dd') : '',
+        seasonStartDate: startDate,
+        seasonEndDate: endDate,
         teamFee: team.teamFee?.toString() || '',
       });
     }
@@ -89,31 +203,64 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
 
   // Update team settings mutation - must be called unconditionally
   const updateTeamMutation = useMutation({
-    mutationFn: async (data: TeamSettings) => {
+    mutationFn: async (data: ProcessedTeamSettings) => {
+      console.log(`[TeamSettings] Updating team ${teamId} with data:`, data);
+      
       if (!canManageTeamSettings(teamId)) {
+        console.error(`[TeamSettings] Permission denied for user ${user?.id} to update team ${teamId}`);
         throw new Error('Permission denied to update team settings');
       }
       
-      const response = await fetch(`/api/teams/${teamId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to update team settings');
+      try {
+        const response = await fetch(`/api/teams/${teamId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include', // Ensure cookies are sent
+          body: JSON.stringify(data),
+        });
+        
+        // Log response status
+        console.log(`[TeamSettings] Update response status:`, response.status);
+        
+        // Get response as text first
+        const responseText = await response.text();
+        console.log(`[TeamSettings] Update response text:`, responseText);
+        
+        // Try to parse as JSON if it looks like JSON
+        let responseData;
+        if (responseText.trim().startsWith('{') || responseText.trim().startsWith('[')) {
+          try {
+            responseData = JSON.parse(responseText);
+          } catch (e) {
+            console.error('[TeamSettings] Failed to parse response as JSON:', e);
+            throw new Error(`Invalid JSON response: ${responseText.substring(0, 100)}`);
+          }
+        } else {
+          console.error('[TeamSettings] Non-JSON response:', responseText.substring(0, 100));
+          throw new Error(`Non-JSON response: ${responseText.substring(0, 100)}`);
+        }
+        
+        if (!response.ok) {
+          console.error('[TeamSettings] Error updating team:', responseData);
+          throw new Error(responseData.error || 'Failed to update team settings');
+        }
+        
+        console.log('[TeamSettings] Team updated successfully:', responseData);
+        return responseData;
+      } catch (error) {
+        console.error('[TeamSettings] Error in mutation:', error);
+        throw error;
       }
-      
-      return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/teams/${teamId}`] });
+    onSuccess: (data) => {
+      console.log('[TeamSettings] Update successful, invalidating queries');
+      queryClient.invalidateQueries({ queryKey: [`team-${teamId}`] });
       setSuccess('Team settings updated successfully');
       setError(null);
       setTimeout(() => setSuccess(null), 3000);
     },
     onError: (error: Error) => {
+      console.error('[TeamSettings] Update error:', error);
       setError(error.message);
       setSuccess(null);
     },
@@ -123,9 +270,13 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
   useEffect(() => {
     console.log(`[TeamSettings] Component mounted for teamId: ${teamId}`);
     const refreshData = async () => {
+      if (initialLoadAttempted.current) return;
+      initialLoadAttempted.current = true;
+      
       try {
         await refreshUser();
         await refetchTeamMembership();
+        await refetchTeam(); // Also explicitly refetch team data
         console.log(`[TeamSettings] Auth and team data refreshed for teamId: ${teamId}`);
       } catch (err) {
         console.error(`[TeamSettings] Error refreshing data:`, err);
@@ -133,7 +284,7 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
     };
     
     refreshData();
-  }, [teamId, refreshUser, refetchTeamMembership]);
+  }, [teamId, refreshUser, refetchTeamMembership, refetchTeam]);
 
   // Force refresh user data
   const refreshUserData = async () => {
@@ -149,10 +300,14 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
       // Then force refresh team memberships
       await refetchTeamMembership();
       
+      // Also refresh team data
+      await refetchTeam();
+      
       setSuccess('Auth data refreshed. Check console for details.');
       console.log('[TeamSettings] Auth check:', authCheckData);
       console.log('[TeamSettings] Current user:', user);
       console.log('[TeamSettings] Team memberships:', teamMembership);
+      console.log('[TeamSettings] Team data:', team);
     } catch (err) {
       setError('Failed to refresh auth data');
       console.error('[TeamSettings] Auth refresh error:', err);
@@ -165,9 +320,118 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
     console.log(`[TeamSettings] Permission check for teamId ${teamId}: ${hasPermission ? 'GRANTED' : 'DENIED'}`);
   }, [canManageTeamSettings, teamId, user, teamMembership]);
 
-  // Submit handler
+  // Helper to process form data before submission
+  const processFormData = (data: TeamSettings): ProcessedTeamSettings => {
+    console.log('[TeamSettings] Processing form data:', data);
+    
+    // For date fields, just pass through the YYYY-MM-DD strings directly
+    // Date inputs in HTML already use ISO format (YYYY-MM-DD)
+    // Don't use Date objects to avoid timezone issues
+    const seasonStartDate = data.seasonStartDate ? data.seasonStartDate.trim() : null;
+    const seasonEndDate = data.seasonEndDate ? data.seasonEndDate.trim() : null;
+    
+    console.log('[TeamSettings] Processed dates:', { seasonStartDate, seasonEndDate });
+    
+    return {
+      // Always include required fields
+      name: data.name.trim(),
+      
+      // For optional fields, convert empty strings to null
+      description: data.description.trim() || null,
+      seasonStartDate,
+      seasonEndDate,
+      
+      // Special handling for numeric field
+      teamFee: data.teamFee.trim() === '' ? null : data.teamFee,
+    };
+  };
+
+  // Submit handler with enhanced validation
   const onSubmit = (data: TeamSettings) => {
-    updateTeamMutation.mutate(data);
+    try {
+      // Basic validation
+      if (!data.name.trim()) {
+        setError('Team name is required');
+        return;
+      }
+      
+      // Validate teamFee - must be a valid number or empty string
+      if (data.teamFee !== '' && isNaN(Number(data.teamFee))) {
+        setError('Team fee must be a valid number');
+        return;
+      }
+      
+      // Process the data to handle null values
+      const processedData = processFormData(data);
+      console.log('[TeamSettings] Submitting processed form data:', processedData);
+      
+      // Submit the processed data
+      updateTeamMutation.mutate(processedData);
+    } catch (err) {
+      console.error('[TeamSettings] Error in form submission:', err);
+      setError(String(err));
+    }
+  };
+
+  // Test direct fetch to team endpoint
+  const testDirectFetch = async () => {
+    setIsFetching(true);
+    setDirectFetchError(null);
+    try {
+      console.log(`[DirectFetch] Testing direct fetch to /api/teams/${teamId}`);
+      
+      // First test auth endpoint to confirm we're logged in
+      const authResponse = await fetch('/api/debug/auth', { credentials: 'include' });
+      const authData = await authResponse.json();
+      console.log('[DirectFetch] Auth check:', authData);
+      
+      // Then test team memberships endpoint
+      const membershipsResponse = await fetch('/api/user/teams', { credentials: 'include' });
+      const membershipsData = await membershipsResponse.json();
+      console.log('[DirectFetch] Team memberships:', membershipsData);
+      
+      // Finally test the team endpoint directly
+      const response = await fetch(`/api/teams/${teamId}`, { 
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      // Log response details before attempting to parse
+      console.log('[DirectFetch] Response status:', response.status);
+      
+      // Log headers safely using forEach instead of entries()
+      const headers: Record<string, string> = {};
+      response.headers.forEach((value, key) => {
+        headers[key] = value;
+      });
+      console.log('[DirectFetch] Response headers:', headers);
+      
+      // Get the raw response text first
+      const responseText = await response.text();
+      console.log('[DirectFetch] Raw response:', responseText.substring(0, 500));
+      
+      // Try to parse as JSON if it looks like JSON
+      let data;
+      if (responseText.trim().startsWith('{') || responseText.trim().startsWith('[')) {
+        try {
+          data = JSON.parse(responseText);
+          setDirectFetchResponse(data);
+        } catch (e) {
+          console.error('[DirectFetch] Failed to parse response as JSON:', e);
+          setDirectFetchError(`Response is not valid JSON: ${responseText.substring(0, 200)}`);
+        }
+      } else {
+        setDirectFetchError(`Response is not JSON: ${responseText.substring(0, 200)}`);
+      }
+    } catch (error) {
+      console.error('[DirectFetch] Error:', error);
+      setDirectFetchError(String(error));
+    } finally {
+      setIsFetching(false);
+    }
   };
 
   // NOW we can use conditional rendering - AFTER all hooks have been called
@@ -202,12 +466,21 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
                 <div className="mb-2">
                   <strong>Server Auth Debug:</strong> {debugResponse ? JSON.stringify(debugResponse, null, 2) : 'Not checked yet'}
                 </div>
+                <div className="mb-2">
+                  <strong>Team Data:</strong> {team ? JSON.stringify(team, null, 2) : 'No team data'} 
+                </div>
+                <div className="mb-2">
+                  <strong>Team Error:</strong> {teamError ? String(teamError) : 'None'}
+                </div>
                 <div>
                   <strong>Request Logs:</strong> <pre>{JSON.stringify(requestLogs, null, 2)}</pre>
                 </div>
                 <div className="mt-4 space-x-2">
-                  <Button onClick={refreshUserData}>Refresh Auth Data</Button>
-                  <Button onClick={() => setShowDebug(false)}>Hide Debug</Button>
+                  <Button onClick={refreshUserData} className="mt-2">Refresh Auth Data</Button>
+                  <Button onClick={testDirectFetch} className="mt-2" disabled={isFetching}>
+                    {isFetching ? 'Testing...' : 'Test API Endpoints'}
+                  </Button>
+                  <Button onClick={() => setShowDebug(false)} className="mt-2">Hide Debug</Button>
                 </div>
               </div>
             </div>
@@ -220,6 +493,69 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
   // If loading, show loading state
   if (isTeamLoading) {
     return <div>Loading team settings...</div>;
+  }
+
+  // If we have an error loading team data
+  if (teamError && !team) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <Alert variant="destructive">
+            <AlertTitle>Error Loading Team Data</AlertTitle>
+            <AlertDescription>{String(teamError)}</AlertDescription>
+          </Alert>
+          <div className="mt-4 space-x-2">
+            <Button onClick={() => refetchTeam()} className="mt-2">Retry</Button>
+            <Button onClick={() => setLocation('/login')} className="mt-2" variant="outline">
+              Go to Login
+            </Button>
+            <Button onClick={testDirectFetch} className="mt-2" disabled={isFetching}>
+              {isFetching ? 'Testing...' : 'Test Direct Fetch'}
+            </Button>
+          </div>
+
+          {showDebug && (
+            <div className="mt-6 p-4 bg-gray-100 rounded-md">
+              <h3 className="text-lg font-bold mb-2">Debug Information</h3>
+              <div className="text-xs font-mono overflow-auto">
+                <div className="mb-2">
+                  <strong>Team ID:</strong> {teamId}
+                </div>
+                <div className="mb-2">
+                  <strong>Error Details:</strong> {String(teamError)}
+                </div>
+                <div className="mb-2">
+                  <strong>Current User:</strong> {user ? JSON.stringify(user, null, 2) : 'Not logged in'}
+                </div>
+                <div className="mb-2">
+                  <strong>Authentication Status:</strong> {user ? 'Logged in' : 'Not logged in'}
+                </div>
+                
+                {directFetchError && (
+                  <div className="mb-2 text-red-500">
+                    <strong>Direct Fetch Error:</strong> {directFetchError}
+                  </div>
+                )}
+                
+                {directFetchResponse && (
+                  <div className="mb-2">
+                    <strong>Direct Fetch Response:</strong> {JSON.stringify(directFetchResponse, null, 2)}
+                  </div>
+                )}
+                
+                <div className="mt-4 space-x-2">
+                  <Button onClick={refreshUserData} className="mt-2">Refresh Auth Data</Button>
+                  <Button onClick={testDirectFetch} className="mt-2" disabled={isFetching}>
+                    {isFetching ? 'Testing...' : 'Test API Endpoints'}
+                  </Button>
+                  <Button onClick={() => setShowDebug(false)} className="mt-2">Hide Debug</Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
   }
 
   // Otherwise render the team settings form
@@ -253,10 +589,14 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
           <TabsContent value="general">
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Team Name</Label>
+                <Label htmlFor="name">Team Name *</Label>
                 <Input 
                   id="name" 
-                  {...register('name', { required: "Team name is required" })} 
+                  {...register('name', { 
+                    required: "Team name is required",
+                    minLength: { value: 2, message: "Name must be at least 2 characters" }
+                  })} 
+                  aria-invalid={errors.name ? "true" : "false"}
                 />
                 {errors.name && <p className="text-red-500 text-sm">{errors.name.message}</p>}
               </div>
@@ -266,6 +606,7 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
                 <Textarea 
                   id="description" 
                   {...register('description')} 
+                  placeholder="Optional description" 
                 />
               </div>
               
@@ -296,8 +637,12 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
                   type="number"
                   step="0.01"
                   min="0"
-                  {...register('teamFee')} 
+                  {...register('teamFee', {
+                    validate: value => value === '' || !isNaN(Number(value)) || "Must be a valid number"
+                  })} 
+                  placeholder="Leave empty for no fee"
                 />
+                {errors.teamFee && <p className="text-red-500 text-sm">{errors.teamFee.message}</p>}
               </div>
               
               <div className="flex justify-end space-x-2 pt-4">
@@ -333,7 +678,16 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
             </div>
           </TabsContent>
         </Tabs>
+
+        {/* Add debug toggle button to the bottom */}
+        {!showDebug && (
+          <div className="mt-6">
+            <Button onClick={() => setShowDebug(true)} variant="outline" size="sm">
+              Show Debug Panel
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
-}; 
+};

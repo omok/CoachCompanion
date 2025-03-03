@@ -100,29 +100,152 @@ export function createTeamsRouter(storage: IStorage): Router {
   });
 
   /**
+   * Get a specific team by ID
+   * 
+   * This endpoint returns detailed information about a specific team.
+   * Users must be a member of the team or the team coach to access this data.
+   * 
+   * Authorization:
+   * - User must be authenticated
+   * - User must be a member of the team or the team coach
+   * 
+   * @route GET /api/teams/:teamId
+   * @param teamId - ID of the team to retrieve
+   * @returns Team details if user has access
+   */
+  router.get('/:teamId', async (req, res) => {
+    try {
+      // Check authentication
+      if (!req.isAuthenticated()) {
+        console.log(`[Teams] GET team ${req.params.teamId} - Not authenticated`);
+        return res.status(401).json({
+          error: 'Authentication Required',
+          message: 'You must be logged in to access team details'
+        });
+      }
+      
+      // Parse team ID
+      const teamId = parseInt(req.params.teamId, 10);
+      if (isNaN(teamId)) {
+        console.log(`[Teams] GET team ${req.params.teamId} - Invalid team ID`);
+        return res.status(400).json({ 
+          error: 'Invalid Request', 
+          message: 'Team ID must be a number' 
+        });
+      }
+
+      console.log(`[Teams] GET team ${teamId} - User ${req.user.id} (${req.user.username}) requesting team details`);
+      
+      // First check if team exists
+      const team = await storage.getTeamById(teamId);
+      if (!team) {
+        console.log(`[Teams] GET team ${teamId} - Team not found`);
+        return res.status(404).json({ 
+          error: 'Not Found', 
+          message: 'Team not found' 
+        });
+      }
+      
+      // Check team access (coach or team member)
+      const userId = req.user.id;
+      
+      // If user is coach of the team
+      if (team.coachId === userId) {
+        console.log(`[Teams] GET team ${teamId} - Access granted (coach)`);
+        return res.json(team);
+      }
+      
+      // If user is a member of the team
+      const teamMemberships = await storage.getTeamMembersByUserId(userId);
+      const isMember = teamMemberships.some((membership: { teamId: number }) => membership.teamId === teamId);
+      
+      if (isMember) {
+        console.log(`[Teams] GET team ${teamId} - Access granted (team member)`);
+        return res.json(team);
+      }
+      
+      // If neither coach nor member, deny access
+      console.log(`[Teams] GET team ${teamId} - Access denied for user ${userId}`);
+      return res.status(403).json({
+        error: 'Permission Denied',
+        message: 'You do not have permission to access this team'
+      });
+      
+    } catch (error) {
+      console.error(`[Teams] Error fetching team ${req.params.teamId}:`, error);
+      res.status(500).json({ 
+        error: 'Server Error', 
+        message: 'An error occurred while fetching team details' 
+      });
+    }
+  });
+
+  /**
    * Update team settings
    * Requires 'manageTeamSettings' permission
    */
   router.put('/:teamId', requireTeamRolePermission('manageTeamSettings'), async (req, res) => {
     try {
+      const userInfo = req.user ? `User ${req.user.id} (${req.user.username})` : 'Unknown user';
+      console.log(`[Teams] PUT team ${req.params.teamId} - ${userInfo} updating team settings`);
+      
       const teamId = parseInt(req.params.teamId, 10);
       if (isNaN(teamId)) {
+        console.log(`[Teams] PUT team ${req.params.teamId} - Invalid team ID`);
         return res.status(400).json({ error: 'Invalid team ID' });
       }
 
       const { name, description, seasonStartDate, seasonEndDate, teamFee } = req.body;
+      console.log(`[Teams] PUT team ${teamId} - Update data:`, { name, description, seasonStartDate, seasonEndDate, teamFee });
+      
+      // Process fields that need special handling
+      
+      // Fix for numeric field validation: convert empty string to null
+      const processedTeamFee = teamFee === '' ? null : teamFee;
+      
+      // Date fields should already be in YYYY-MM-DD format from the client
+      // Just validate the format and pass through or set to null
+      
+      // For date handling - we expect strings in YYYY-MM-DD format or null
+      // These are passed directly to the database
+      let processedStartDate = seasonStartDate;
+      let processedEndDate = seasonEndDate;
+      
+      // Basic validation to ensure dates are in YYYY-MM-DD format
+      if (seasonStartDate && typeof seasonStartDate === 'string') {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(seasonStartDate)) {
+          console.warn(`[Teams] Invalid start date format, setting to null: ${seasonStartDate}`);
+          processedStartDate = null;
+        }
+      }
+      
+      if (seasonEndDate && typeof seasonEndDate === 'string') {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(seasonEndDate)) {
+          console.warn(`[Teams] Invalid end date format, setting to null: ${seasonEndDate}`);
+          processedEndDate = null;
+        }
+      }
+      
+      console.log(`[Teams] Processed data for update:`, { 
+        name,
+        description, 
+        seasonStartDate: processedStartDate, 
+        seasonEndDate: processedEndDate, 
+        teamFee: processedTeamFee
+      });
       
       const updatedTeam = await storage.updateTeam(teamId, {
         name,
         description,
-        seasonStartDate,
-        seasonEndDate,
-        teamFee
+        seasonStartDate: processedStartDate,
+        seasonEndDate: processedEndDate,
+        teamFee: processedTeamFee
       });
 
+      console.log(`[Teams] PUT team ${teamId} - Team updated successfully`);
       res.json(updatedTeam);
     } catch (error) {
-      console.error('Error updating team settings:', error);
+      console.error(`[Teams] Error updating team ${req.params.teamId} settings:`, error);
       res.status(500).json({ error: 'Failed to update team settings' });
     }
   });

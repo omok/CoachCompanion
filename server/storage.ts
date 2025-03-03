@@ -675,11 +675,35 @@ export class Storage implements IStorage {
     teamFee?: string | number | null;
   }): Promise<Team> {
     try {
+      Logger.info(`Updating team ${id} with data:`, updates);
+      
+      // Create a clean object for updates
+      const sanitizedUpdates: Record<string, any> = {};
+      
+      // Only include defined fields in the update
+      if (updates.name !== undefined) sanitizedUpdates.name = updates.name;
+      if (updates.description !== undefined) sanitizedUpdates.description = updates.description;
+      if (updates.coachId !== undefined) sanitizedUpdates.coachId = updates.coachId;
+      
+      // For date fields, pass through strings in YYYY-MM-DD format or null
+      if (updates.seasonStartDate !== undefined) {
+        sanitizedUpdates.seasonStartDate = updates.seasonStartDate;
+      }
+      
+      if (updates.seasonEndDate !== undefined) {
+        sanitizedUpdates.seasonEndDate = updates.seasonEndDate;
+      }
+      
       // Convert teamFee to string if it's a number
-      const sanitizedUpdates = {
-        ...updates,
-        teamFee: typeof updates.teamFee === 'number' ? String(updates.teamFee) : updates.teamFee
-      };
+      if (updates.teamFee !== undefined) {
+        if (typeof updates.teamFee === 'number') {
+          sanitizedUpdates.teamFee = String(updates.teamFee);
+        } else {
+          sanitizedUpdates.teamFee = updates.teamFee;
+        }
+      }
+      
+      Logger.info(`Sanitized updates for team ${id}:`, sanitizedUpdates);
       
       const result = await db.update(teams)
         .set(sanitizedUpdates)

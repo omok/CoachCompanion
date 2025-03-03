@@ -66,7 +66,6 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
   } = useQuery({
     queryKey: [`team-${teamId}`],
     queryFn: async () => {
-      console.log(`[TeamSettings] Fetching team data for teamId: ${teamId}`);
       try {
         const response = await fetch(`/api/teams/${teamId}`, {
           credentials: 'include' // Ensure cookies are sent
@@ -118,7 +117,6 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
         }
         
         const data = await response.json();
-        console.log(`[TeamSettings] Successfully fetched team data:`, data);
         return data;
       } catch (error) {
         console.error(`[TeamSettings] Error fetching team ${teamId}:`, error);
@@ -143,7 +141,6 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
   // Update form values when team data loads - must be after form setup
   useEffect(() => {
     if (team) {
-      console.log(`[TeamSettings] Resetting form with team data:`, team);
       
       // For date fields, just set the YYYY-MM-DD strings directly
       // If they're already in that format, no need to parse and reformat
@@ -189,8 +186,6 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
         }
       }
       
-      console.log('[TeamSettings] Using dates for form:', { startDate, endDate });
-      
       reset({
         name: team.name || '',
         description: team.description || '',
@@ -204,7 +199,6 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
   // Update team settings mutation - must be called unconditionally
   const updateTeamMutation = useMutation({
     mutationFn: async (data: ProcessedTeamSettings) => {
-      console.log(`[TeamSettings] Updating team ${teamId} with data:`, data);
       
       if (!canManageTeamSettings(teamId)) {
         console.error(`[TeamSettings] Permission denied for user ${user?.id} to update team ${teamId}`);
@@ -219,12 +213,9 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
           body: JSON.stringify(data),
         });
         
-        // Log response status
-        console.log(`[TeamSettings] Update response status:`, response.status);
         
         // Get response as text first
         const responseText = await response.text();
-        console.log(`[TeamSettings] Update response text:`, responseText);
         
         // Try to parse as JSON if it looks like JSON
         let responseData;
@@ -245,7 +236,6 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
           throw new Error(responseData.error || 'Failed to update team settings');
         }
         
-        console.log('[TeamSettings] Team updated successfully:', responseData);
         return responseData;
       } catch (error) {
         console.error('[TeamSettings] Error in mutation:', error);
@@ -253,7 +243,6 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
       }
     },
     onSuccess: (data) => {
-      console.log('[TeamSettings] Update successful, invalidating queries');
       queryClient.invalidateQueries({ queryKey: [`team-${teamId}`] });
       setSuccess('Team settings updated successfully');
       setError(null);
@@ -268,7 +257,6 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
 
   // On mount, refresh auth and team membership data
   useEffect(() => {
-    console.log(`[TeamSettings] Component mounted for teamId: ${teamId}`);
     const refreshData = async () => {
       if (initialLoadAttempted.current) return;
       initialLoadAttempted.current = true;
@@ -277,8 +265,7 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
         await refreshUser();
         await refetchTeamMembership();
         await refetchTeam(); // Also explicitly refetch team data
-        console.log(`[TeamSettings] Auth and team data refreshed for teamId: ${teamId}`);
-      } catch (err) {
+d      } catch (err) {
         console.error(`[TeamSettings] Error refreshing data:`, err);
       }
     };
@@ -304,10 +291,6 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
       await refetchTeam();
       
       setSuccess('Auth data refreshed. Check console for details.');
-      console.log('[TeamSettings] Auth check:', authCheckData);
-      console.log('[TeamSettings] Current user:', user);
-      console.log('[TeamSettings] Team memberships:', teamMembership);
-      console.log('[TeamSettings] Team data:', team);
     } catch (err) {
       setError('Failed to refresh auth data');
       console.error('[TeamSettings] Auth refresh error:', err);
@@ -317,20 +300,16 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
   // Log whenever permission check result changes
   useEffect(() => {
     const hasPermission = canManageTeamSettings(teamId);
-    console.log(`[TeamSettings] Permission check for teamId ${teamId}: ${hasPermission ? 'GRANTED' : 'DENIED'}`);
   }, [canManageTeamSettings, teamId, user, teamMembership]);
 
   // Helper to process form data before submission
   const processFormData = (data: TeamSettings): ProcessedTeamSettings => {
-    console.log('[TeamSettings] Processing form data:', data);
     
     // For date fields, just pass through the YYYY-MM-DD strings directly
     // Date inputs in HTML already use ISO format (YYYY-MM-DD)
     // Don't use Date objects to avoid timezone issues
     const seasonStartDate = data.seasonStartDate ? data.seasonStartDate.trim() : null;
     const seasonEndDate = data.seasonEndDate ? data.seasonEndDate.trim() : null;
-    
-    console.log('[TeamSettings] Processed dates:', { seasonStartDate, seasonEndDate });
     
     return {
       // Always include required fields
@@ -363,7 +342,6 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
       
       // Process the data to handle null values
       const processedData = processFormData(data);
-      console.log('[TeamSettings] Submitting processed form data:', processedData);
       
       // Submit the processed data
       updateTeamMutation.mutate(processedData);
@@ -378,17 +356,14 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
     setIsFetching(true);
     setDirectFetchError(null);
     try {
-      console.log(`[DirectFetch] Testing direct fetch to /api/teams/${teamId}`);
       
       // First test auth endpoint to confirm we're logged in
       const authResponse = await fetch('/api/debug/auth', { credentials: 'include' });
       const authData = await authResponse.json();
-      console.log('[DirectFetch] Auth check:', authData);
       
       // Then test team memberships endpoint
       const membershipsResponse = await fetch('/api/user/teams', { credentials: 'include' });
       const membershipsData = await membershipsResponse.json();
-      console.log('[DirectFetch] Team memberships:', membershipsData);
       
       // Finally test the team endpoint directly
       const response = await fetch(`/api/teams/${teamId}`, { 
@@ -399,19 +374,14 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
         }
       });
       
-      // Log response details before attempting to parse
-      console.log('[DirectFetch] Response status:', response.status);
-      
       // Log headers safely using forEach instead of entries()
       const headers: Record<string, string> = {};
       response.headers.forEach((value, key) => {
         headers[key] = value;
       });
-      console.log('[DirectFetch] Response headers:', headers);
       
       // Get the raw response text first
       const responseText = await response.text();
-      console.log('[DirectFetch] Raw response:', responseText.substring(0, 500));
       
       // Try to parse as JSON if it looks like JSON
       let data;

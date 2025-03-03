@@ -802,33 +802,26 @@ export class Storage implements IStorage {
    */
   async getTeamMembersByUserId(userId: number): Promise<(TeamMember & { teamName?: string })[]> {
     try {
-      console.log(`[Storage] Getting team memberships for userId: ${userId}`);
       
       // Get team memberships
       const query = db.select().from(teamMembers).where(eq(teamMembers.userId, userId));
-      console.log('[Storage] Team memberships query:', query.toSQL().sql);
       
       const memberships = await query;
-      console.log(`[Storage] Found ${memberships.length} team memberships for userId: ${userId}`, memberships);
       
       // If no memberships, return empty array
       if (memberships.length === 0) {
-        console.log(`[Storage] No team memberships found for userId: ${userId}`);
         return [];
       }
       
       // Get team names
       const teamIds = memberships.map(membership => membership.teamId);
-      console.log(`[Storage] Getting team names for teamIds:`, teamIds);
       
       const teamQuery = db
         .select({ id: teams.id, name: teams.name })
         .from(teams)
         .where(inArray(teams.id, teamIds));
-      console.log('[Storage] Team names query:', teamQuery.toSQL().sql);
       
       const teamInfo = await teamQuery;
-      console.log(`[Storage] Found ${teamInfo.length} teams`, teamInfo);
       
       // Combine membership data with team names
       const result = memberships.map(membership => {
@@ -839,7 +832,6 @@ export class Storage implements IStorage {
         };
       });
       
-      console.log(`[Storage] Returning combined result for userId: ${userId}`, result);
       return result;
     } catch (error) {
       console.error(`[Storage] Error fetching team memberships for userId: ${userId}`, error);

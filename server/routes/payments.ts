@@ -23,9 +23,7 @@ function formatPaymentDatesForClient(payments: any[]) {
     // Use ISO string and take first 10 chars (YYYY-MM-DD)
     // This avoids timezone issues by taking only the date part
     const dateString = dateObj.toISOString().split('T')[0];
-    
-    Logger.info(`Formatting payment date for client: ${payment.date} -> ${dateString}`);
-    
+        
     return {
       ...payment,
       date: dateString

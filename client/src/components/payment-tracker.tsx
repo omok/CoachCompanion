@@ -93,7 +93,6 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
 
   const addPaymentMutation = useMutation({
     mutationFn: async (data: FormData) => {
-      console.log('[PaymentTracker] Submitting payment with data:', data);
       
       // We're sending the date as YYYY-MM-DD string directly
       // No need to create Date objects which can cause timezone issues

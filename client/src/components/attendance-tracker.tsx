@@ -14,7 +14,6 @@ import { format, parseISO } from "date-fns";
 // Define a logger function to help with debugging
 const logEvent = (component: string, action: string, data?: any) => {
   const timestamp = new Date().toISOString();
-  console.log(`[${timestamp}] [${component}] ${action}`, data ? data : '');
 };
 
 export function AttendanceTracker({ teamId }: { teamId: number }) {

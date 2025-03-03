@@ -65,17 +65,13 @@ export function setupAuth(app: Express) {
   app.use((req, res, next) => {
     // Only log for API routes
     if (req.path.startsWith('/api')) {
-      console.log(`[Auth Debug] Path: ${req.path}, isAuthenticated: ${req.isAuthenticated()}, userId in session: ${req.session.userId || 'not set'}`);
       if (req.user) {
-        console.log(`[Auth Debug] User object: ${JSON.stringify(req.user)}`);
         
         // Sync passport user ID with session userId
         if (!req.session.userId && req.user.id) {
-          console.log(`[Auth Debug] Setting session.userId from req.user.id: ${req.user.id}`);
           req.session.userId = req.user.id;
         }
       } else {
-        console.log('[Auth Debug] No user object in request');
       }
     }
     next();
@@ -97,13 +93,11 @@ export function setupAuth(app: Express) {
   );
 
   passport.serializeUser((user, done) => {
-    console.log(`[Auth] Serializing user: ${user.id}`);
     done(null, user.id);
   });
   
   passport.deserializeUser(async (id: number, done) => {
     try {
-      console.log(`[Auth] Deserializing user: ${id}`);
       const user = await storage.getUser(id);
       done(null, user);
     } catch (error) {
@@ -129,7 +123,6 @@ export function setupAuth(app: Express) {
         
         // Explicitly set userId in session
         req.session.userId = user.id;
-        console.log(`[Auth] User registered and logged in. Set session.userId to ${user.id}`);
         
         res.status(201).json(user);
       });
@@ -142,7 +135,6 @@ export function setupAuth(app: Express) {
     // Explicitly set userId in session after login
     if (req.user) {
       req.session.userId = req.user.id;
-      console.log(`[Auth] User logged in. Set session.userId to ${req.user.id}`);
     }
     
     res.status(200).json(req.user);
@@ -152,7 +144,6 @@ export function setupAuth(app: Express) {
     // Clear userId from session
     if (req.session) {
       req.session.userId = undefined;
-      console.log(`[Auth] Cleared session.userId during logout`);
     }
     
     req.logout((err) => {
@@ -167,7 +158,6 @@ export function setupAuth(app: Express) {
     // Sync userId in session
     if (req.user && !req.session.userId) {
       req.session.userId = req.user.id;
-      console.log(`[Auth] Synced session.userId to ${req.user.id} in /api/user endpoint`);
     }
     
     res.json(req.user);

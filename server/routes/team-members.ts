@@ -20,16 +20,6 @@ export function createTeamMembersRouter(storage: IStorage) {
    * Get all team memberships for the authenticated user
    */
   router.get('/api/user/teams', async (req, res) => {
-    // Log the request details
-    console.log('[API] GET /api/user/teams request received', {
-      session: req.session,
-      userId: req.session?.userId,
-      passportSession: (req.session as any)?.passport,
-      isAuthenticated: req.isAuthenticated(),
-      user: req.user,
-      headers: req.headers,
-      cookies: req.cookies
-    });
 
     // Get the user ID either from session or passport user
     const userId = req.session.userId || (req.user ? (req.user as any).id : null) || 
@@ -37,28 +27,16 @@ export function createTeamMembersRouter(storage: IStorage) {
 
     // Check if user is authenticated
     if (!userId) {
-      console.log('[API] GET /api/user/teams - No userId found in session or user object', { 
-        session: req.session,
-        user: req.user
-      });
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
     try {
-      console.log(`[API] GET /api/user/teams - Fetching team memberships for userId: ${userId}`);
       
       // Call the storage method to get team memberships
       const teamMemberships = await storage.getTeamMembersByUserId(userId);
       
-      // Log the result
-      console.log(`[API] GET /api/user/teams - Found ${teamMemberships.length} team memberships`, { 
-        userId,
-        teamMemberships
-      });
-      
       res.json(teamMemberships);
     } catch (error) {
-      console.log('[API] GET /api/user/teams - Error', error);
       Logger.error('Error fetching team memberships', { error });
       res.status(500).json({ error: 'Failed to fetch team memberships' });
     }

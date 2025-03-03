@@ -231,8 +231,6 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
     // that could introduce timezone issues
     const serverDateString = getDateForServer(dateStr);
     
-    console.log(`[PracticeNotes] Saving note for date: ${dateStr}, server format: ${serverDateString}`);
-    
     // Create the complete data object
     const completeData = {
       notes: notes || 'Practice session',

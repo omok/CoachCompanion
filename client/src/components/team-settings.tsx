@@ -8,10 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { PlayerForm } from "@/components/player-form";
 import { PlayerList } from "@/components/player-list";
 import { AuthContext } from "../contexts/AuthContext";
 import { useTeamMember } from '../hooks/useTeamMember';
@@ -265,7 +264,7 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
         await refreshUser();
         await refetchTeamMembership();
         await refetchTeam(); // Also explicitly refetch team data
-d      } catch (err) {
+      } catch (err) {
         console.error(`[TeamSettings] Error refreshing data:`, err);
       }
     };
@@ -549,14 +548,10 @@ d      } catch (err) {
           </Alert>
         )}
         
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="mb-4">
-            <TabsTrigger value="general">General Settings</TabsTrigger>
-            <TabsTrigger value="players">Player Management</TabsTrigger>
-          </TabsList>
-          
-          {/* General Team Settings */}
-          <TabsContent value="general">
+        <div className="space-y-8">
+          {/* General Team Settings Section */}
+          <div>
+            <h2 className="text-xl font-semibold mb-4">General Settings</h2>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Team Name *</Label>
@@ -631,23 +626,19 @@ d      } catch (err) {
                 </Button>
               </div>
             </form>
-          </TabsContent>
+          </div>
           
-          {/* Player Management */}
-          <TabsContent value="players">
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-medium mb-4">Add New Player</h3>
-                <PlayerForm teamId={teamId} />
-              </div>
-              
-              <div>
-                <h3 className="text-lg font-medium mb-4">Manage Players</h3>
-                <PlayerList teamId={teamId} showEditControls={true} />
-              </div>
+          <Separator className="my-8" />
+          
+          {/* Player Management Section */}
+          <div>
+            <h2 className="text-xl font-semibold mb-6">Player Management</h2>
+            
+            <div>
+              <PlayerList teamId={teamId} showEditControls={true} />
             </div>
-          </TabsContent>
-        </Tabs>
+          </div>
+        </div>
 
         {/* Add debug toggle button to the bottom */}
         {!showDebug && (

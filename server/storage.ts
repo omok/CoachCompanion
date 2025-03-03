@@ -43,6 +43,7 @@ export interface IStorage {
   createPlayer(player: InsertPlayer): Promise<Player>;
   getPlayersByTeamId(teamId: number): Promise<Player[]>;
   getPlayer(id: number): Promise<Player | undefined>;
+  updatePlayer(id: number, updates: Partial<InsertPlayer>): Promise<Player>;
 
   // Attendance operations
   createAttendance(attendance: InsertAttendance): Promise<Attendance>;
@@ -253,6 +254,22 @@ export class Storage implements IStorage {
   async getPlayer(id: number): Promise<Player | undefined> {
     const result = await db.select().from(players).where(eq(players.id, id));
     return result[0];
+  }
+
+  /**
+   * Update a player's information
+   * 
+   * @param id - The player's unique identifier
+   * @param updates - Partial player data to update
+   * @returns The updated player
+   */
+  async updatePlayer(id: number, updates: Partial<InsertPlayer>): Promise<Player> {
+    const [updatedPlayer] = await db
+      .update(players)
+      .set(updates)
+      .where(eq(players.id, id))
+      .returning();
+    return updatedPlayer;
   }
 
   /**

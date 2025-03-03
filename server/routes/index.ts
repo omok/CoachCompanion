@@ -62,6 +62,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/teams/:teamId/practice-notes", createPracticeNotesRouter(storage));
   app.use("/api/teams/:teamId/payments", createPaymentsRouter(storage));
 
+  // Add a catch-all handler for API routes to return proper errors for unknown endpoints
+  app.all("/api/*", (req, res) => {
+    res.status(404).json({
+      error: 'Not Found',
+      message: `API endpoint not found: ${req.method} ${req.path}`
+    });
+  });
+
   // Create and return HTTP server
   return createServer(app);
 } 

@@ -6,6 +6,15 @@ import express from 'express';
 import { requireTeamRolePermission } from '../utils/authorization';
 
 /**
+ * Validate date format - YYYY-MM-DD
+ * Following our documented date handling approach
+ */
+function isValidDateFormat(dateStr: string | null): boolean {
+  if (!dateStr) return true; // null is valid
+  return /^\d{4}-\d{2}-\d{2}$/.test(dateStr);
+}
+
+/**
  * Creates and configures the teams router
  * 
  * @param storage - The storage interface for database access
@@ -203,27 +212,18 @@ export function createTeamsRouter(storage: IStorage): Router {
       // Fix for numeric field validation: convert empty string to null
       const processedTeamFee = teamFee === '' ? null : teamFee;
       
-      // Date fields should already be in YYYY-MM-DD format from the client
-      // Just validate the format and pass through or set to null
-      
-      // For date handling - we expect strings in YYYY-MM-DD format or null
-      // These are passed directly to the database
+      // Process dates - ensure they're in YYYY-MM-DD format or null
       let processedStartDate = seasonStartDate;
       let processedEndDate = seasonEndDate;
       
-      // Basic validation to ensure dates are in YYYY-MM-DD format
-      if (seasonStartDate && typeof seasonStartDate === 'string') {
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(seasonStartDate)) {
-          console.warn(`[Teams] Invalid start date format, setting to null: ${seasonStartDate}`);
-          processedStartDate = null;
-        }
+      if (seasonStartDate && !isValidDateFormat(seasonStartDate)) {
+        console.warn(`[Teams] Invalid start date format, setting to null: ${seasonStartDate}`);
+        processedStartDate = null;
       }
       
-      if (seasonEndDate && typeof seasonEndDate === 'string') {
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(seasonEndDate)) {
-          console.warn(`[Teams] Invalid end date format, setting to null: ${seasonEndDate}`);
-          processedEndDate = null;
-        }
+      if (seasonEndDate && !isValidDateFormat(seasonEndDate)) {
+        console.warn(`[Teams] Invalid end date format, setting to null: ${seasonEndDate}`);
+        processedEndDate = null;
       }
       
       console.log(`[Teams] Processed data for update:`, { 

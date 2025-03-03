@@ -20,14 +20,51 @@ import {
   BookOpen,
   DollarSign,
   Loader2,
+  ChevronLeft,
+  CalendarIcon,
+  Info,
 } from "lucide-react";
 import { AttendanceStats } from "@/components/attendance-stats";
+import { format, parseISO } from "date-fns";
 
 interface PlayerDetailsProps {
   teamId: number;
   playerId: number;
   onBack?: () => void;
   showBackButton?: boolean;
+}
+
+// Helper function to format display dates for UI consistency
+function formatDisplayDate(dateString: string | Date): string {
+  if (!dateString) return '';
+  
+  // Handle Date objects
+  if (dateString instanceof Date) {
+    try {
+      return format(dateString, 'MMM d, yyyy');
+    } catch (err) {
+      console.error('Error formatting Date object:', err);
+      return dateString.toLocaleDateString();
+    }
+  }
+  
+  // If it's already in YYYY-MM-DD format, use it directly
+  if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    try {
+      return format(parseISO(dateString), 'MMM d, yyyy');
+    } catch (err) {
+      console.error('Error formatting date string:', err);
+      return dateString;
+    }
+  }
+  
+  // Otherwise try to parse it as an ISO string
+  try {
+    return format(new Date(String(dateString)), 'MMM d, yyyy');
+  } catch (err) {
+    console.error('Error formatting date:', err);
+    return String(dateString);
+  }
 }
 
 export function PlayerDetails({ 
@@ -66,13 +103,21 @@ export function PlayerDetails({
   });
 
   // Fetch payments
-  const { data: payments, isLoading: isLoadingPayments } = useQuery<Payment[]>({
+  const { data: payments, isLoading: isLoadingPayments, refetch: refetchPayments } = useQuery<Payment[]>({
     queryKey: [`/api/teams/${teamId}/payments/player/${playerId}`],
     enabled: !!teamId && !!playerId && user?.role === "coach",
   });
 
   // Calculate payment total
   const paymentTotal = payments?.reduce((sum, payment) => sum + Number(payment.amount), 0) || 0;
+
+  // Ensure we always have latest payment data when component mounts
+  useEffect(() => {
+    if (teamId && playerId && user?.role === "coach") {
+      // Refetch payment data when component mounts
+      refetchPayments();
+    }
+  }, [teamId, playerId, user?.role, refetchPayments]);
 
   // Check if the current user is a parent of this player
   const isParentOfPlayer = user?.role === "parent" && player?.parentId === user?.id;
@@ -399,7 +444,7 @@ export function PlayerDetails({
                       <TableBody>
                         {payments.map((payment) => (
                           <TableRow key={payment.id}>
-                            <TableCell className="text-xs sm:text-sm py-2 sm:py-4">{new Date(payment.date).toLocaleDateString()}</TableCell>
+                            <TableCell className="text-xs sm:text-sm py-2 sm:py-4">{formatDisplayDate(payment.date)}</TableCell>
                             <TableCell className="text-xs sm:text-sm py-2 sm:py-4">${Number(payment.amount).toFixed(2)}</TableCell>
                             <TableCell className="text-xs sm:text-sm py-2 sm:py-4 truncate max-w-[150px] sm:max-w-none">{payment.notes || "-"}</TableCell>
                           </TableRow>

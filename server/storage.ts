@@ -82,6 +82,15 @@ export const sessionStore = new PostgresStore({
 });
 
 /**
+ * Validate date format - YYYY-MM-DD
+ * Following our documented date handling approach
+ */
+function isValidDateFormat(dateStr: string | null): boolean {
+  if (!dateStr) return true; // null is valid
+  return /^\d{4}-\d{2}-\d{2}$/.test(dateStr);
+}
+
+/**
  * Storage implementation using Drizzle ORM
  * 
  * This class implements the IStorage interface using Drizzle ORM to interact
@@ -509,20 +518,38 @@ export class Storage implements IStorage {
    * @returns The created payment record with ID assigned
    */
   async createPayment(payment: InsertPayment): Promise<Payment> {
-    // Ensure amount is properly formatted for the database
-    // The database expects a string for numeric fields when using Drizzle ORM
-    const amount = typeof payment.amount === 'number' 
-      ? payment.amount.toString() 
-      : payment.amount;
+    try {
+      // Ensure amount is properly formatted for the database
+      // The database expects a string for numeric fields when using Drizzle ORM
+      const amount = typeof payment.amount === 'number' 
+        ? payment.amount.toString() 
+        : payment.amount;
       
-    const [newPayment] = await db
-      .insert(payments)
-      .values({
-        ...payment,
-        amount // Pass as string to match the database schema expectation
-      })
-      .returning();
-    return newPayment;
+      // Convert string date to Date object for the database timestamp field
+      let dateValue: Date;
+      if (typeof payment.date === 'string') {
+        Logger.info(`Converting payment date string: ${payment.date} to Date object`);
+        // Create date at noon UTC to avoid timezone issues
+        dateValue = new Date(`${payment.date}T12:00:00Z`);
+      } else {
+        dateValue = payment.date;
+      }
+      
+      const [newPayment] = await db
+        .insert(payments)
+        .values({
+          playerId: payment.playerId,
+          teamId: payment.teamId,
+          amount, // Pass as string to match the database schema expectation
+          date: dateValue, // Use Date object for timestamp field
+          notes: payment.notes
+        })
+        .returning();
+      return newPayment;
+    } catch (error) {
+      Logger.error('Error creating payment:', error);
+      throw error;
+    }
   }
 
   /**
@@ -685,13 +712,23 @@ export class Storage implements IStorage {
       if (updates.description !== undefined) sanitizedUpdates.description = updates.description;
       if (updates.coachId !== undefined) sanitizedUpdates.coachId = updates.coachId;
       
-      // For date fields, pass through strings in YYYY-MM-DD format or null
+      // For date fields, validate format and pass through
       if (updates.seasonStartDate !== undefined) {
-        sanitizedUpdates.seasonStartDate = updates.seasonStartDate;
+        if (isValidDateFormat(updates.seasonStartDate)) {
+          sanitizedUpdates.seasonStartDate = updates.seasonStartDate;
+        } else {
+          Logger.warn(`Invalid start date format, setting to null: ${updates.seasonStartDate}`);
+          sanitizedUpdates.seasonStartDate = null;
+        }
       }
       
       if (updates.seasonEndDate !== undefined) {
-        sanitizedUpdates.seasonEndDate = updates.seasonEndDate;
+        if (isValidDateFormat(updates.seasonEndDate)) {
+          sanitizedUpdates.seasonEndDate = updates.seasonEndDate;
+        } else {
+          Logger.warn(`Invalid end date format, setting to null: ${updates.seasonEndDate}`);
+          sanitizedUpdates.seasonEndDate = null;
+        }
       }
       
       // Convert teamFee to string if it's a number

@@ -53,9 +53,36 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
     queryKey: [`/api/teams/${teamId}/attendance`],
   });
 
-  // Helper function to format date to YYYY-MM-DD
+  // Helper function to format date to YYYY-MM-DD - using consistent pattern
   function formatDateString(date: Date): string {
     return date.toLocaleDateString('en-CA'); // Returns YYYY-MM-DD
+  }
+
+  // Helper function to get today's date in YYYY-MM-DD format
+  function getTodayInYYYYMMDD(): string {
+    return formatDateString(new Date());
+  }
+
+  // Helper function to parse a YYYY-MM-DD string into a valid date string for the server
+  // Without using Date objects that can cause timezone issues
+  function getDateForServer(dateStr: string): string {
+    // If it's already in YYYY-MM-DD format, we'll append a fixed time
+    // to avoid timezone issues. The server will handle this consistent format.
+    if (dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      // We add T12:00:00Z (noon UTC) to avoid any date shifting
+      return `${dateStr}T12:00:00.000Z`;
+    }
+    
+    // Fallback: if it's not in the expected format, log an error and still try to handle it
+    console.error(`[PracticeNotes] Invalid date format: ${dateStr}, expected YYYY-MM-DD`);
+    
+    // Try to parse and convert to ISO string, but this might have timezone issues
+    try {
+      return new Date(`${dateStr}T12:00:00.000Z`).toISOString();
+    } catch (err) {
+      console.error(`[PracticeNotes] Error parsing date:`, err);
+      return new Date().toISOString(); // Fallback to current date
+    }
   }
 
   // Update present players when date changes
@@ -197,17 +224,21 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
       return;
     }
     
-    // Format the date correctly
+    // Format the date directly using our consistent pattern
     const dateStr = formatDateString(selectedDate);
-    const practiceDate = new Date(`${dateStr}T12:00:00.000Z`);
+    
+    // Convert to server format without creating a Date object
+    // that could introduce timezone issues
+    const serverDateString = getDateForServer(dateStr);
+    
+    console.log(`[PracticeNotes] Saving note for date: ${dateStr}, server format: ${serverDateString}`);
     
     // Create the complete data object
     const completeData = {
       notes: notes || 'Practice session',
-      practiceDate: practiceDate.toISOString(),
+      practiceDate: serverDateString, // Using our consistent date handling
       playerIds: presentPlayerIds
     };
-    
     
     // Create a toast notification to show we're trying to save
     toast({
@@ -218,13 +249,11 @@ export function PracticeNotes({ teamId }: { teamId: number }) {
     // Call the mutation
     try {
       createNoteMutation.mutate(completeData);
-    } catch (error: any) {
-      console.error('Error calling mutation:', error);
-      
-      // Show error toast
+    } catch (error) {
+      console.error(`[PracticeNotes] Error saving note:`, error);
       toast({
-        title: "Error",
-        description: `Failed to save: ${error.message || 'Unknown error'}`,
+        title: "Error saving note",
+        description: "There was an error saving your practice note. Please try again.",
         variant: "destructive",
       });
     }

@@ -2,6 +2,36 @@ import { Router, Request } from "express";
 import { insertPaymentSchema } from "@shared/schema";
 import { handleValidationError } from "./utils";
 import { IStorage } from "../storage";
+import { Logger } from "../logger";
+
+// Validate date format - YYYY-MM-DD
+function isValidDateFormat(dateStr: string | null): boolean {
+  if (!dateStr) return true; // null is valid
+  return /^\d{4}-\d{2}-\d{2}$/.test(dateStr);
+}
+
+// Format dates in payment data to YYYY-MM-DD strings for client
+function formatPaymentDatesForClient(payments: any[]) {
+  return payments.map(payment => {
+    // If the date is already a string in YYYY-MM-DD format, return as is
+    if (typeof payment.date === 'string' && isValidDateFormat(payment.date)) {
+      return payment;
+    }
+    
+    // Convert Date objects to YYYY-MM-DD format
+    const dateObj = payment.date instanceof Date ? payment.date : new Date(payment.date);
+    // Use ISO string and take first 10 chars (YYYY-MM-DD)
+    // This avoids timezone issues by taking only the date part
+    const dateString = dateObj.toISOString().split('T')[0];
+    
+    Logger.info(`Formatting payment date for client: ${payment.date} -> ${dateString}`);
+    
+    return {
+      ...payment,
+      date: dateString
+    };
+  });
+}
 
 // Define interface for request params
 interface TeamParams {
@@ -76,12 +106,37 @@ export function createPaymentsRouter(storage: IStorage): Router {
         });
       }
       
+      // Validate date format before parsing
+      if (!isValidDateFormat(req.body.date)) {
+        Logger.warn(`Invalid date format received: ${req.body.date}`);
+        return res.status(400).json({
+          error: 'Invalid Format',
+          message: 'Date must be in YYYY-MM-DD format'
+        });
+      }
+      
       const parsed = insertPaymentSchema.parse({
         ...req.body,
         teamId,
       });
       
-      const payment = await storage.createPayment(parsed);
+      Logger.info(`Creating payment record: ${JSON.stringify({
+        playerId: parsed.playerId,
+        teamId: parsed.teamId,
+        amount: parsed.amount,
+        date: parsed.date,
+        hasNotes: !!parsed.notes
+      })}`);
+      
+      // Create a Date object from the YYYY-MM-DD string
+      // Use noon UTC to avoid timezone issues
+      const dateValue = new Date(`${parsed.date}T12:00:00Z`);
+      Logger.info(`Converted payment date string '${parsed.date}' to Date: ${dateValue.toISOString()}`);
+      
+      const payment = await storage.createPayment({
+        ...parsed,
+        date: dateValue
+      });
       res.status(201).json(payment);
     } catch (err) {
       handleValidationError(err, res);
@@ -137,7 +192,9 @@ export function createPaymentsRouter(storage: IStorage): Router {
       }
       
       const payments = await storage.getPaymentsByTeamId(teamId);
-      res.json(payments);
+      // Format dates before sending to client
+      const formattedPayments = formatPaymentDatesForClient(payments);
+      res.json(formattedPayments);
     } catch (err) {
       console.error('Error fetching team payments:', err);
       res.status(500).json({
@@ -266,7 +323,9 @@ export function createPaymentsRouter(storage: IStorage): Router {
       }
       
       const payments = await storage.getPaymentsByPlayerId(playerId);
-      res.json(payments);
+      // Format dates before sending to client
+      const formattedPayments = formatPaymentDatesForClient(payments);
+      res.json(formattedPayments);
     } catch (err) {
       console.error('Error fetching player payments:', err);
       res.status(500).json({

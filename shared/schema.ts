@@ -134,7 +134,7 @@ export const insertPaymentSchema = z.object({
   amount: z.string()
     .transform((val) => Number(val))
     .pipe(z.number().positive().multipleOf(0.01)),
-  date: z.string().transform(date => new Date(date)),
+  date: z.union([z.string(), z.instanceof(Date)]),
   notes: z.string().optional(),
 });
 

@@ -8,6 +8,8 @@ import { Loader2, Save, ArrowRightIcon, ArrowLeftIcon, Check, X } from "lucide-r
 import { AttendanceStats } from "./attendance-stats";
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+import { format, parseISO } from "date-fns";
 
 // Define a logger function to help with debugging
 const logEvent = (component: string, action: string, data?: any) => {
@@ -52,9 +54,36 @@ export function AttendanceTracker({ teamId }: { teamId: number }) {
     }
   }, [attendance]);
 
-  // Helper function to format date to YYYY-MM-DD
+  // Helper function to format date to YYYY-MM-DD - using consistent pattern
   function formatDateString(date: Date): string {
     return date.toLocaleDateString('en-CA'); // Returns YYYY-MM-DD
+  }
+
+  // Helper function to get today's date in YYYY-MM-DD format
+  function getTodayInYYYYMMDD(): string {
+    return formatDateString(new Date());
+  }
+
+  // Helper function to parse a YYYY-MM-DD string into a valid date string for the server
+  // Without using Date objects that can cause timezone issues
+  function getDateForServer(dateStr: string): string {
+    // If it's already in YYYY-MM-DD format, we'll append a fixed time
+    // to avoid timezone issues. The server will handle this consistent format.
+    if (dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      // We add T12:00:00Z (noon UTC) to avoid any date shifting
+      return `${dateStr}T12:00:00.000Z`;
+    }
+    
+    // Fallback: if it's not in the expected format, log an error and still try to handle it
+    console.error(`[AttendanceTracker] Invalid date format: ${dateStr}, expected YYYY-MM-DD`);
+    
+    // Try to parse and convert to ISO string, but this might have timezone issues
+    try {
+      return new Date(`${dateStr}T12:00:00.000Z`).toISOString();
+    } catch (err) {
+      console.error(`[AttendanceTracker] Error parsing date:`, err);
+      return new Date().toISOString(); // Fallback to current date
+    }
   }
 
   // Reset attendance state when date or data changes
@@ -97,19 +126,20 @@ export function AttendanceTracker({ teamId }: { teamId: number }) {
       // Get the date string in YYYY-MM-DD format
       const dateStr = formatDateString(selectedDate);
 
-      // Create date at noon to avoid timezone issues
-      const localDate = new Date(dateStr + 'T12:00:00');
+      // Create server-safe date string using our helper function
+      // This avoids timezone issues by not using Date objects
+      const serverDateString = getDateForServer(dateStr);
 
       // Collect all attendance records
       const records = Object.entries(attendanceState).map(([playerId, present]) => ({
         playerId: parseInt(playerId),
         teamId,
-        date: localDate.toISOString(),
+        date: serverDateString, // Using our consistent date handling
         present,
       }));
 
       logger('Saving attendance', { 
-        date: localDate.toISOString(), 
+        date: serverDateString, 
         recordCount: records.length,
         presentPlayers: records.filter(r => r.present).length,
         absentPlayers: records.filter(r => !r.present).length
@@ -117,7 +147,7 @@ export function AttendanceTracker({ teamId }: { teamId: number }) {
 
       try {
         const res = await apiRequest("POST", `/api/teams/${teamId}/attendance`, {
-          date: localDate.toISOString(),
+          date: serverDateString, // Using our consistent date handling
           records: records
         });
         
@@ -128,7 +158,7 @@ export function AttendanceTracker({ teamId }: { teamId: number }) {
         
         return res.json();
       } catch (error) {
-        logger('Error saving attendance', error);
+        logger('Error saving attendance', { error });
         throw error;
       }
     },
@@ -191,6 +221,39 @@ export function AttendanceTracker({ teamId }: { teamId: number }) {
     });
   };
 
+  // Helper function to format display dates for UI consistency
+  function formatDisplayDate(dateString: string | Date): string {
+    if (!dateString) return '';
+    
+    // Handle Date objects
+    if (dateString instanceof Date) {
+      try {
+        return format(dateString, 'MMM d, yyyy');
+      } catch (err) {
+        console.error('Error formatting Date object:', err);
+        return dateString.toLocaleDateString();
+      }
+    }
+    
+    // If it's already in YYYY-MM-DD format, use it directly
+    if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+      try {
+        return format(parseISO(dateString), 'MMM d, yyyy');
+      } catch (err) {
+        console.error('Error formatting date string:', err);
+        return dateString;
+      }
+    }
+    
+    // Otherwise try to parse it as an ISO string
+    try {
+      return format(new Date(String(dateString)), 'MMM d, yyyy');
+    } catch (err) {
+      console.error('Error formatting date:', err);
+      return String(dateString);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="grid md:grid-cols-2 gap-6">
@@ -217,7 +280,7 @@ export function AttendanceTracker({ teamId }: { teamId: number }) {
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-medium">
-                  Attendance for {selectedDate.toLocaleDateString()}
+                  Attendance for {formatDisplayDate(selectedDate)}
                 </h3>
                 {isCoach && (
                   <Button 

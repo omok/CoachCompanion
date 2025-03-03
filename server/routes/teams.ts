@@ -226,14 +226,6 @@ export function createTeamsRouter(storage: IStorage): Router {
         processedEndDate = null;
       }
       
-      console.log(`[Teams] Processed data for update:`, { 
-        name,
-        description, 
-        seasonStartDate: processedStartDate, 
-        seasonEndDate: processedEndDate, 
-        teamFee: processedTeamFee
-      });
-      
       const updatedTeam = await storage.updateTeam(teamId, {
         name,
         description,

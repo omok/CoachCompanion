@@ -1,4 +1,4 @@
-import { pgTable, varchar, serial, integer, boolean, timestamp, json, numeric } from "drizzle-orm/pg-core";
+import { pgTable, varchar, serial, integer, boolean, timestamp, json, numeric, date } from "drizzle-orm/pg-core";
 import { z } from "zod";
 
 // Add session table definition to prevent Drizzle from trying to drop it
@@ -24,6 +24,18 @@ export const teams = pgTable("teams", {
   name: varchar("name").notNull(),
   coachId: integer("coach_id").notNull(),
   description: varchar("description"),
+  seasonStartDate: date("season_start_date"),
+  seasonEndDate: date("season_end_date"),
+  teamFee: numeric("team_fee"),
+});
+
+// Team members table for tracking team roles
+export const teamMembers = pgTable("team_members", {
+  id: serial("id").primaryKey(),
+  teamId: integer("team_id").notNull(),
+  userId: integer("user_id").notNull(),
+  role: varchar("role").notNull(), // 'AssistantCoach', 'TeamManager', 'Parent'
+  isOwner: boolean("is_owner").notNull().default(false),
 });
 
 export const players = pgTable("players", {
@@ -75,6 +87,19 @@ export const insertTeamSchema = z.object({
   name: z.string(),
   coachId: z.number(),
   description: z.string().optional(),
+  seasonStartDate: z.string().transform(date => date ? new Date(date) : undefined).optional(),
+  seasonEndDate: z.string().transform(date => date ? new Date(date) : undefined).optional(),
+  teamFee: z.string().transform(val => val ? Number(val) : undefined)
+    .pipe(z.number().positive().multipleOf(0.01).optional())
+    .optional(),
+});
+
+// Schema for team membership
+export const insertTeamMemberSchema = z.object({
+  teamId: z.number(),
+  userId: z.number(),
+  role: z.string(),
+  isOwner: z.boolean().optional().default(false),
 });
 
 export const insertPlayerSchema = z.object({
@@ -109,12 +134,13 @@ export const insertPaymentSchema = z.object({
   amount: z.string()
     .transform((val) => Number(val))
     .pipe(z.number().positive().multipleOf(0.01)),
-  date: z.string().transform(date => new Date(date)),
+  date: z.union([z.string(), z.instanceof(Date)]),
   notes: z.string().optional(),
 });
 
 export type User = typeof users.$inferSelect;
 export type Team = typeof teams.$inferSelect;
+export type TeamMember = typeof teamMembers.$inferSelect;
 export type Player = typeof players.$inferSelect;
 export type Attendance = typeof attendance.$inferSelect;
 export type PracticeNote = typeof practiceNotes.$inferSelect;
@@ -122,6 +148,7 @@ export type Payment = typeof payments.$inferSelect;
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type InsertTeam = z.infer<typeof insertTeamSchema>;
+export type InsertTeamMember = z.infer<typeof insertTeamMemberSchema>;
 export type InsertPlayer = z.infer<typeof insertPlayerSchema>;
 export type InsertAttendance = z.infer<typeof insertAttendanceSchema>;
 export type InsertPracticeNote = z.infer<typeof insertPracticeNoteSchema>;

@@ -14,7 +14,7 @@ import {
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { Loader2, ExternalLink } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { z } from "zod";
@@ -23,6 +23,34 @@ import { usePlayerContext } from "./player-context";
 import { useAuth } from "@/hooks/use-auth";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+
+// Helper function for consistent date handling - get today's date in YYYY-MM-DD format
+function getTodayInYYYYMMDD(): string {
+  return new Date().toLocaleDateString('en-CA'); // Returns YYYY-MM-DD
+}
+
+// Helper function to format display dates for UI
+function formatDisplayDate(dateString: string): string {
+  if (!dateString) return '';
+  
+  // If it's already in YYYY-MM-DD format, use it directly
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    try {
+      return format(parseISO(dateString), 'MMM d, yyyy');
+    } catch (err) {
+      console.error('Error formatting date:', err);
+      return dateString;
+    }
+  }
+  
+  // Otherwise try to parse it as an ISO string
+  try {
+    return format(new Date(dateString), 'MMM d, yyyy');
+  } catch (err) {
+    console.error('Error formatting date:', err);
+    return dateString;
+  }
+}
 
 const formSchema = z.object({
   playerId: z.coerce.number().positive("Please select a player"),
@@ -44,7 +72,7 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      date: format(new Date(), "yyyy-MM-dd"),
+      date: getTodayInYYYYMMDD(), // Using our helper function
       amount: "",
     },
   });
@@ -65,6 +93,10 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
 
   const addPaymentMutation = useMutation({
     mutationFn: async (data: FormData) => {
+      
+      // We're sending the date as YYYY-MM-DD string directly
+      // No need to create Date objects which can cause timezone issues
+      
       const res = await apiRequest("POST", `/api/teams/${teamId}/payments`, {
         ...data,
         teamId,
@@ -75,11 +107,18 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
       }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
+      // Invalidate team-wide payment queries
       queryClient.invalidateQueries({ queryKey: [`/api/teams/${teamId}/payments`] });
       queryClient.invalidateQueries({ queryKey: [`/api/teams/${teamId}/payments/totals`] });
+      
+      // Also invalidate player-specific payment query to update player details popup
+      queryClient.invalidateQueries({ 
+        queryKey: [`/api/teams/${teamId}/payments/player/${variables.playerId}`] 
+      });
+      
       form.reset({
-        date: format(new Date(), "yyyy-MM-dd"),
+        date: getTodayInYYYYMMDD(), // Using our helper function
         amount: "",
       });
       toast({

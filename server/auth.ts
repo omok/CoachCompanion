@@ -6,6 +6,7 @@ import crypto from "crypto";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
+import { sessionStore } from "./storage";
 import { User as SelectUser } from "@shared/schema";
 
 declare global {
@@ -34,80 +35,6 @@ async function comparePasswords(supplied: string, stored: string) {
   }
 }
 
-// Initialize test data
-export async function initializeTestData() {
-  try {
-    // Check if default coach exists
-    let coach = await storage.getUserByUsername("omok");
-    
-    if (!coach) {
-      const hashedPassword = await hashPassword("omok");
-      coach = await storage.createUser({
-        username: "omok",
-        password: hashedPassword,
-        role: "coach",
-        name: "Otto"
-      });
-    }
-
-    // Check if default team exists
-    const teams = await storage.getTeamsByCoachId(coach.id);
-    let team = teams[0];
-    
-    if (!team) {
-      team = await storage.createTeam({
-        name: "CMS",
-        coachId: coach.id,
-        description: ""
-      });
-    }
-
-    // Create parent users if they don't exist
-    const defaultParents = [
-      { username: "parent1", password: "parent1", role: "parent", name: "Parent One" },
-      { username: "parent2", password: "parent2", role: "parent", name: "Parent Two" },
-      { username: "parent3", password: "parent3", role: "parent", name: "Parent Three" }
-    ];
-
-    // Create parent users
-    for (const parentData of defaultParents) {
-      const existingParent = await storage.getUserByUsername(parentData.username);
-      if (!existingParent) {
-        const hashedPassword = await hashPassword(parentData.password);
-        await storage.createUser({
-          ...parentData,
-          password: hashedPassword
-        });
-      }
-    }
-
-    // Create default players if they don't exist
-    const existingPlayers = await storage.getPlayersByTeamId(team.id);
-    
-    // Get parent users to use their actual IDs
-    const parent1 = await storage.getUserByUsername("parent1");
-    const parent2 = await storage.getUserByUsername("parent2");
-    const parent3 = await storage.getUserByUsername("parent3");
-    
-    const defaultPlayers = [
-      { name: "Nolan", teamId: team.id, parentId: parent1 ? parent1.id : 1, active: true },
-      { name: "Alex", teamId: team.id, parentId: parent2 ? parent2.id : 2, active: true },
-      { name: "Owen", teamId: team.id, parentId: parent3 ? parent3.id : 3, active: true }
-    ];
-
-    // Use Promise.all to create players in parallel
-    const playerCreationPromises = defaultPlayers
-      .filter(player => !existingPlayers.some(p => p.name === player.name))
-      .map(player => storage.createPlayer(player));
-    
-    await Promise.all(playerCreationPromises);
-
-    console.log("Test data initialization completed successfully");
-  } catch (error) {
-    console.error("Error initializing test data:", error);
-  }
-}
-
 export function setupAuth(app: Express) {
   if (!process.env.SESSION_SECRET) {
     console.warn("WARNING: SESSION_SECRET environment variable not set. Using a random secret for development only.");
@@ -121,7 +48,7 @@ export function setupAuth(app: Express) {
     secret: process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex'),
     resave: false,
     saveUninitialized: false,
-    store: storage.sessionStore,
+    store: sessionStore,
     cookie: {
       secure: process.env.NODE_ENV === 'production',
       httpOnly: true,
@@ -133,6 +60,22 @@ export function setupAuth(app: Express) {
   app.use(session(sessionSettings));
   app.use(passport.initialize());
   app.use(passport.session());
+
+  // Log middleware to track session state
+  app.use((req, res, next) => {
+    // Only log for API routes
+    if (req.path.startsWith('/api')) {
+      if (req.user) {
+        
+        // Sync passport user ID with session userId
+        if (!req.session.userId && req.user.id) {
+          req.session.userId = req.user.id;
+        }
+      } else {
+      }
+    }
+    next();
+  });
 
   passport.use(
     new LocalStrategy(async (username, password, done) => {
@@ -149,12 +92,16 @@ export function setupAuth(app: Express) {
     }),
   );
 
-  passport.serializeUser((user, done) => done(null, user.id));
+  passport.serializeUser((user, done) => {
+    done(null, user.id);
+  });
+  
   passport.deserializeUser(async (id: number, done) => {
     try {
       const user = await storage.getUser(id);
       done(null, user);
     } catch (error) {
+      console.error(`[Auth] Error deserializing user: ${id}`, error);
       done(error);
     }
   });
@@ -173,6 +120,10 @@ export function setupAuth(app: Express) {
 
       req.login(user, (err) => {
         if (err) return next(err);
+        
+        // Explicitly set userId in session
+        req.session.userId = user.id;
+        
         res.status(201).json(user);
       });
     } catch (error) {
@@ -181,10 +132,20 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/login", passport.authenticate("local"), (req, res) => {
+    // Explicitly set userId in session after login
+    if (req.user) {
+      req.session.userId = req.user.id;
+    }
+    
     res.status(200).json(req.user);
   });
 
   app.post("/api/logout", (req, res, next) => {
+    // Clear userId from session
+    if (req.session) {
+      req.session.userId = undefined;
+    }
+    
     req.logout((err) => {
       if (err) return next(err);
       res.sendStatus(200);
@@ -193,6 +154,12 @@ export function setupAuth(app: Express) {
 
   app.get("/api/user", (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    // Sync userId in session
+    if (req.user && !req.session.userId) {
+      req.session.userId = req.user.id;
+    }
+    
     res.json(req.user);
   });
 }

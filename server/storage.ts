@@ -170,19 +170,41 @@ export class Storage implements IStorage {
   /**
    * Create a new user
    * 
-   * This method handles user creation with appropriate validation.
-   * Note that password hashing should be done before calling this method.
-   * 
-   * @param user - The user data to insert
-   * @param context - The storage context containing the current user ID
-   * @returns The created user with ID assigned
+   * This method handles user creation in a special way since the user doesn't exist yet
+   * when registering. It first creates the user with a temporary lastUpdatedByUser value,
+   * then updates the field with the newly created user's ID.
    */
-  async createUser(user: InsertUser, context: StorageContext): Promise<User> {
-    const [newUser] = await db
-      .insert(users)
-      .values(this.addAuditField(user, context))
-      .returning();
-    return newUser;
+  async createUser(user: InsertUser, context?: StorageContext): Promise<User> {
+    try {
+      Logger.info("Creating new user", { username: user.username });
+
+      // First create the user with a temporary lastUpdatedByUser value
+      const result = await db.insert(users)
+        .values({ ...user, lastUpdatedByUser: -1 }) // Use -1 as a temporary value
+        .returning();
+
+      if (!result.length) {
+        throw new Error("Failed to create user");
+      }
+
+      const newUser = result[0];
+
+      // Now update the lastUpdatedByUser field with the new user's ID
+      const updatedResult = await db.update(users)
+        .set({ lastUpdatedByUser: newUser.id })
+        .where(eq(users.id, newUser.id))
+        .returning();
+
+      if (!updatedResult.length) {
+        throw new Error("Failed to update lastUpdatedByUser for new user");
+      }
+
+      Logger.info("Successfully created user", { userId: newUser.id });
+      return updatedResult[0];
+    } catch (error) {
+      Logger.error("Error creating user", error);
+      throw error;
+    }
   }
 
   /**

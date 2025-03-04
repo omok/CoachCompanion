@@ -8,8 +8,20 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertUserSchema } from "@shared/schema";
+import { insertUserSchema, type InsertUser } from "@shared/schema";
 import { FaBasketball } from "react-icons/fa6";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+type LoginFormData = {
+  username: string;
+  password: string;
+};
 
 export default function AuthPage() {
   const [, setLocation] = useLocation();
@@ -19,12 +31,15 @@ export default function AuthPage() {
     if (user) setLocation("/");
   }, [user, setLocation]);
 
-  const loginForm = useForm({
+  const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(insertUserSchema.pick({ username: true, password: true })),
   });
 
-  const registerForm = useForm({
+  const registerForm = useForm<InsertUser>({
     resolver: zodResolver(insertUserSchema),
+    defaultValues: {
+      role: "coach"
+    }
   });
 
   return (
@@ -107,13 +122,18 @@ export default function AuthPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="role">Role</Label>
-                    <select
-                      {...registerForm.register("role")}
-                      className="w-full px-3 py-2 border rounded-md"
+                    <Select
+                      defaultValue="coach"
+                      onValueChange={(value) => registerForm.setValue("role", value)}
                     >
-                      <option value="coach">Coach</option>
-                      <option value="parent">Parent</option>
-                    </select>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select your role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="coach">Coach</SelectItem>
+                        <SelectItem value="parent">Parent</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <Button
                     type="submit"

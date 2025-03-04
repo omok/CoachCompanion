@@ -16,9 +16,11 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
 
 export function CreateTeamDialog() {
   const { toast } = useToast();
+  const [open, setOpen] = useState(false);
   const form = useForm({
     resolver: zodResolver(insertTeamSchema.omit({ coachId: true })),
   });
@@ -35,6 +37,7 @@ export function CreateTeamDialog() {
         description: "Your new team has been created successfully.",
       });
       form.reset();
+      setOpen(false); // Close the dialog on success
     },
     onError: (error: Error) => {
       toast({
@@ -46,7 +49,7 @@ export function CreateTeamDialog() {
   });
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" className="w-full mt-2">
           <Plus className="h-4 w-4 mr-2" />

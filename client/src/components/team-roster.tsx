@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Player, insertPlayerSchema } from "@shared/schema";
 import { useAuth } from "@/hooks/use-auth";
+import { usePermissions } from "@/hooks/usePermissions";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,16 +25,24 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Loader2, UserPlus, EyeIcon } from "lucide-react";
+import { Loader2, UserPlus, EyeIcon, Pencil, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { usePlayerContext } from "./player-context";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
 
+type SortField = 'status' | 'name' | 'jerseyNumber';
+type SortDirection = 'asc' | 'desc';
+
 export function TeamRoster({ teamId }: { teamId: number }) {
   const { user } = useAuth();
+  const { canAddPlayer } = usePermissions();
   const { showPlayerDetails } = usePlayerContext();
   const [showAllPlayers, setShowAllPlayers] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
+  const [sortField, setSortField] = useState<SortField>('status');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  
   const form = useForm({
     resolver: zodResolver(insertPlayerSchema.omit({ teamId: true })),
     defaultValues: {
@@ -78,6 +87,88 @@ export function TeamRoster({ teamId }: { teamId: number }) {
     }
   });
 
+  const updatePlayerMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("PUT", `/api/teams/${teamId}/players/${editingPlayer?.id}`, {
+        ...data,
+        teamId,
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Failed to update player");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/teams/${teamId}/players`] });
+      form.reset();
+      setDialogOpen(false);
+      setEditingPlayer(null);
+      toast({
+        title: "Success",
+        description: "Player updated successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update player",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const handleEditPlayer = (player: Player) => {
+    setEditingPlayer(player);
+    form.reset({
+      name: player.name,
+      parentId: player.parentId,
+      jerseyNumber: player.jerseyNumber || "",
+      active: player.active
+    });
+    setDialogOpen(true);
+  };
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) return <ArrowUpDown className="h-4 w-4 ml-1" />;
+    return sortDirection === 'asc' ? 
+      <ArrowUp className="h-4 w-4 ml-1" /> : 
+      <ArrowDown className="h-4 w-4 ml-1" />;
+  };
+
+  const sortPlayers = (players: Player[] | undefined) => {
+    if (!players) return [];
+    
+    return [...players].sort((a, b) => {
+      let comparison = 0;
+      
+      switch (sortField) {
+        case 'status':
+          comparison = Number(b.active) - Number(a.active);
+          break;
+        case 'name':
+          comparison = a.name.localeCompare(b.name);
+          break;
+        case 'jerseyNumber':
+          const aNum = a.jerseyNumber ? parseInt(a.jerseyNumber) : Infinity;
+          const bNum = b.jerseyNumber ? parseInt(b.jerseyNumber) : Infinity;
+          comparison = aNum - bNum;
+          break;
+      }
+      
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center">
@@ -86,10 +177,10 @@ export function TeamRoster({ teamId }: { teamId: number }) {
     );
   }
 
-  // Filter players based on the toggle state
-  const displayedPlayers = showAllPlayers 
-    ? players 
-    : players?.filter(player => player.active);
+  // Filter and sort players
+  const displayedPlayers = sortPlayers(
+    showAllPlayers ? players : players?.filter(player => player.active)
+  );
 
   return (
     <div>
@@ -104,8 +195,19 @@ export function TeamRoster({ teamId }: { teamId: number }) {
             />
             <Label htmlFor="show-all-players">Show All Players</Label>
           </div>
-          {user?.role === "coach" && (
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          {canAddPlayer(teamId) && (
+            <Dialog open={dialogOpen} onOpenChange={(open) => {
+              setDialogOpen(open);
+              if (open) {
+                setEditingPlayer(null);
+                form.reset({
+                  name: "",
+                  parentId: 0,
+                  jerseyNumber: "",
+                  active: true
+                });
+              }
+            }}>
               <DialogTrigger asChild>
                 <Button>
                   <UserPlus className="h-4 w-4 mr-2" />
@@ -114,27 +216,19 @@ export function TeamRoster({ teamId }: { teamId: number }) {
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Add New Player</DialogTitle>
+                  <DialogTitle>{editingPlayer ? "Edit Player" : "Add New Player"}</DialogTitle>
                 </DialogHeader>
                 <form
-                  onSubmit={form.handleSubmit((data) => addPlayerMutation.mutate(data))}
+                  onSubmit={form.handleSubmit((data) => 
+                    editingPlayer 
+                      ? updatePlayerMutation.mutate(data)
+                      : addPlayerMutation.mutate(data)
+                  )}
                   className="space-y-4"
                 >
                   <div className="space-y-2">
                     <Label htmlFor="name">Player Name</Label>
                     <Input id="name" {...form.register("name")} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="parentId">Parent ID (Optional)</Label>
-                    <Input
-                      id="parentId"
-                      type="number"
-                      {...form.register("parentId", { 
-                        setValueAs: (value) => value === "" ? 0 : parseInt(value, 10) 
-                      })}
-                      placeholder="0"
-                    />
-                    <p className="text-xs text-muted-foreground">Leave empty to set as 0</p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="jerseyNumber">Jersey Number (Optional)</Label>
@@ -144,18 +238,35 @@ export function TeamRoster({ teamId }: { teamId: number }) {
                       placeholder="#"
                     />
                   </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="active"
+                        checked={form.watch("active")}
+                        onCheckedChange={(checked) => form.setValue("active", checked)}
+                      />
+                      <Label htmlFor="active">Active Player</Label>
+                    </div>
+                  </div>
                   <div className="flex justify-end gap-2">
-                    <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                    <Button type="button" variant="outline" onClick={() => {
+                      setDialogOpen(false);
+                      setEditingPlayer(null);
+                      form.reset();
+                    }}>
                       Cancel
                     </Button>
-                    <Button type="submit" disabled={addPlayerMutation.isPending}>
-                      {addPlayerMutation.isPending ? (
+                    <Button 
+                      type="submit" 
+                      disabled={addPlayerMutation.isPending || updatePlayerMutation.isPending}
+                    >
+                      {(addPlayerMutation.isPending || updatePlayerMutation.isPending) ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Adding...
+                          {editingPlayer ? "Updating..." : "Adding..."}
                         </>
                       ) : (
-                        "Add Player"
+                        editingPlayer ? "Update Player" : "Add Player"
                       )}
                     </Button>
                   </div>
@@ -169,25 +280,42 @@ export function TeamRoster({ teamId }: { teamId: number }) {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Name</TableHead>
-            <TableHead>Jersey #</TableHead>
-            <TableHead>Status</TableHead>
+            <TableHead 
+              className="cursor-pointer hover:bg-muted/50"
+              onClick={() => handleSort('name')}
+            >
+              Name {getSortIcon('name')}
+            </TableHead>
+            <TableHead 
+              className="cursor-pointer hover:bg-muted/50"
+              onClick={() => handleSort('jerseyNumber')}
+            >
+              Jersey # {getSortIcon('jerseyNumber')}
+            </TableHead>
+            <TableHead 
+              className="cursor-pointer hover:bg-muted/50"
+              onClick={() => handleSort('status')}
+            >
+              Status {getSortIcon('status')}
+            </TableHead>
+            {canAddPlayer(teamId) && <TableHead className="text-right">Actions</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
-          {displayedPlayers?.map((player) => (
+          {displayedPlayers.map((player) => (
             <TableRow 
               key={player.id} 
-              className="hover:bg-muted/50 cursor-pointer" 
-              onClick={() => showPlayerDetails(teamId, player.id)}
+              className="hover:bg-muted/50 cursor-pointer"
             >
-              <TableCell>
+              <TableCell onClick={() => showPlayerDetails(teamId, player.id)}>
                 <div className="font-medium text-primary hover:text-primary/80">
                   {player.name}
                 </div>
               </TableCell>
-              <TableCell>{player.jerseyNumber || "-"}</TableCell>
-              <TableCell>
+              <TableCell onClick={() => showPlayerDetails(teamId, player.id)}>
+                {player.jerseyNumber || "-"}
+              </TableCell>
+              <TableCell onClick={() => showPlayerDetails(teamId, player.id)}>
                 <span
                   className={`px-2 py-1 rounded-full text-xs ${
                     player.active
@@ -198,6 +326,21 @@ export function TeamRoster({ teamId }: { teamId: number }) {
                   {player.active ? "Active" : "Inactive"}
                 </span>
               </TableCell>
+              {canAddPlayer(teamId) && (
+                <TableCell className="text-right">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    title="Edit player"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleEditPlayer(player);
+                    }}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                </TableCell>
+              )}
             </TableRow>
           ))}
         </TableBody>

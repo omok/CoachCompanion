@@ -11,7 +11,6 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { PlayerList } from "@/components/player-list";
 import { AuthContext } from "../contexts/AuthContext";
 import { useTeamMember } from '../hooks/useTeamMember';
 import { apiRequest } from '../lib/queryClient';
@@ -551,7 +550,6 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
         <div className="space-y-8">
           {/* General Team Settings Section */}
           <div>
-            <h2 className="text-xl font-semibold mb-4">General Settings</h2>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Team Name *</Label>
@@ -626,17 +624,6 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
                 </Button>
               </div>
             </form>
-          </div>
-          
-          <Separator className="my-8" />
-          
-          {/* Player Management Section */}
-          <div>
-            <h2 className="text-xl font-semibold mb-6">Player Management</h2>
-            
-            <div>
-              <PlayerList teamId={teamId} showEditControls={true} />
-            </div>
           </div>
         </div>
 

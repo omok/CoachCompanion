@@ -19,57 +19,13 @@ const PostgresStore = connectPgSimple(session);
  * It provides a clean abstraction over the database, allowing the rest of
  * the application to interact with data without knowledge of the underlying
  * storage mechanism.
+ * 
+ * Audit Trail Convention:
+ * - All entity tables include a lastUpdatedByUser column
+ * - This column tracks the ID of the user who last modified the record
+ * - The storage layer automatically sets this column on all create/update operations
+ * - The current user's ID must be provided in the context parameter for all operations
  */
-export interface IStorage {
-  // User operations
-  getUser(id: number): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
-
-  // Team operations
-  createTeam(team: InsertTeam): Promise<Team>;
-  getTeamsByCoachId(coachId: number): Promise<Team[]>;
-  getTeamsByParentId(parentId: number): Promise<Team[]>;
-  getTeam(id: number): Promise<Team | undefined>;
-  getTeams(coachId: number): Promise<Team[]>;
-  getTeamById(id: number): Promise<Team | undefined>;
-  updateTeam(id: number, updates: Partial<Omit<InsertTeam, 'seasonStartDate' | 'seasonEndDate' | 'teamFee'>> & {
-    seasonStartDate?: string | null;
-    seasonEndDate?: string | null;
-    teamFee?: string | number | null;
-  }): Promise<Team>;
-
-  // Player operations
-  createPlayer(player: InsertPlayer): Promise<Player>;
-  getPlayersByTeamId(teamId: number): Promise<Player[]>;
-  getPlayer(id: number): Promise<Player | undefined>;
-  updatePlayer(id: number, updates: Partial<InsertPlayer>): Promise<Player>;
-
-  // Attendance operations
-  createAttendance(attendance: InsertAttendance): Promise<Attendance>;
-  getAttendanceByTeamId(teamId: number): Promise<Attendance[]>;
-  getAttendanceByTeamAndDate(teamId: number, date: Date): Promise<Attendance[]>;
-  updateAttendance(teamId: number, date: Date, records: InsertAttendance[]): Promise<Attendance[]>;
-  getAttendanceByPlayerId(playerId: number, teamId: number): Promise<Attendance[]>;
-
-  // Practice notes operations
-  createPracticeNote(note: InsertPracticeNote): Promise<PracticeNote>;
-  getPracticeNotesByTeamId(teamId: number): Promise<PracticeNote[]>;
-  getPracticeNotesByPlayerId(playerId: number, teamId: number): Promise<PracticeNote[]>;
-
-  // Payment operations
-  createPayment(payment: InsertPayment): Promise<Payment>;
-  getPaymentsByPlayerId(playerId: number, startDate?: Date, endDate?: Date): Promise<Payment[]>;
-  getPaymentsByTeamId(teamId: number, startDate?: Date, endDate?: Date): Promise<Payment[]>;
-  getPaymentSummaryByTeam(teamId: number): Promise<{ playerId: number; totalAmount: string | null }[]>;
-
-  // Team Member operations
-  createTeamMember(teamMember: InsertTeamMember): Promise<TeamMember>;
-  getTeamMembers(teamId: number): Promise<TeamMemberWithUser[]>;
-  getTeamMembersByUserId(userId: number): Promise<(TeamMember & { teamName?: string })[]>;
-  updateTeamMember(id: number, updates: Partial<InsertTeamMember>): Promise<TeamMember>;
-  deleteTeamMember(id: number): Promise<void>;
-}
 
 /**
  * Session store configuration for PostgreSQL
@@ -92,6 +48,71 @@ function isValidDateFormat(dateStr: string | null): boolean {
 }
 
 /**
+ * Helper function to convert Date to ISO string for database
+ */
+function dateToISOString(date: Date | string | null | undefined): string | null {
+  if (!date) return null;
+  return typeof date === 'string' ? date : date.toISOString();
+}
+
+/**
+ * Helper function to ensure date is a Date object for database
+ */
+function ensureDate(date: Date | string): Date {
+  return typeof date === 'string' ? new Date(date) : date;
+}
+
+// Add context type for operations
+export interface StorageContext {
+  currentUserId: number;
+}
+
+export interface IStorage {
+  // User operations
+  getUser(id: number): Promise<User | undefined>;
+  getUserByUsername(username: string): Promise<User | undefined>;
+  createUser(user: InsertUser, context: StorageContext): Promise<User>;
+
+  // Team operations
+  createTeam(team: InsertTeam, context: StorageContext): Promise<Team>;
+  getTeamsByCoachId(coachId: number): Promise<Team[]>;
+  getTeamsByParentId(parentId: number): Promise<Team[]>;
+  getTeam(id: number): Promise<Team | undefined>;
+  updateTeam(id: number, updates: Partial<InsertTeam>, context: StorageContext): Promise<Team>;
+
+  // Player operations
+  createPlayer(player: InsertPlayer, context: StorageContext): Promise<Player>;
+  getPlayersByTeamId(teamId: number): Promise<Player[]>;
+  getPlayer(id: number): Promise<Player | undefined>;
+  updatePlayer(id: number, updates: Partial<InsertPlayer>, context: StorageContext): Promise<Player>;
+
+  // Attendance operations
+  createAttendance(record: InsertAttendance, context: StorageContext): Promise<Attendance>;
+  getAttendanceByTeamId(teamId: number): Promise<Attendance[]>;
+  getAttendanceByTeamAndDate(teamId: number, date: Date): Promise<Attendance[]>;
+  updateAttendance(teamId: number, date: Date, records: InsertAttendance[], context: StorageContext): Promise<Attendance[]>;
+  getAttendanceByPlayerId(playerId: number, teamId: number): Promise<Attendance[]>;
+
+  // Practice note operations
+  createPracticeNote(note: InsertPracticeNote, context: StorageContext): Promise<PracticeNote>;
+  getPracticeNotesByTeamId(teamId: number): Promise<PracticeNote[]>;
+  getPracticeNotesByPlayerId(playerId: number, teamId: number): Promise<PracticeNote[]>;
+
+  // Payment operations
+  createPayment(payment: InsertPayment, context: StorageContext): Promise<Payment>;
+  getPaymentsByPlayerId(playerId: number, startDate?: Date, endDate?: Date): Promise<Payment[]>;
+  getPaymentsByTeamId(teamId: number, startDate?: Date, endDate?: Date): Promise<Payment[]>;
+  getPaymentSummaryByTeam(teamId: number): Promise<{ playerId: number; totalAmount: string | null }[]>;
+
+  // Team member operations
+  createTeamMember(teamMember: InsertTeamMember, context: StorageContext): Promise<TeamMember>;
+  getTeamMembers(teamId: number): Promise<TeamMemberWithUser[]>;
+  getTeamMembersByUserId(userId: number): Promise<(TeamMember & { teamName?: string })[]>;
+  updateTeamMember(id: number, updates: Partial<InsertTeamMember>, context: StorageContext): Promise<TeamMember>;
+  deleteTeamMember(id: number): Promise<void>;
+}
+
+/**
  * Storage implementation using Drizzle ORM
  * 
  * This class implements the IStorage interface using Drizzle ORM to interact
@@ -102,8 +123,22 @@ function isValidDateFormat(dateStr: string | null): boolean {
  * - Repository Pattern: Centralizes data access logic
  * - Data Mapper: Maps between database records and domain objects
  * - Transaction Script: Encapsulates business logic in methods
+ * - Audit Trail: Automatically tracks lastUpdatedByUser for all operations
  */
 export class Storage implements IStorage {
+  /**
+   * Helper method to add lastUpdatedByUser to insert/update operations
+   * @param data - The data to be inserted/updated
+   * @param context - The storage context containing the current user ID
+   * @returns The data with lastUpdatedByUser added
+   */
+  private addAuditField<T>(data: T, context: StorageContext): T & { lastUpdatedByUser: number } {
+    return {
+      ...data,
+      lastUpdatedByUser: context.currentUserId
+    };
+  }
+
   /**
    * Get a user by ID
    * 
@@ -139,10 +174,14 @@ export class Storage implements IStorage {
    * Note that password hashing should be done before calling this method.
    * 
    * @param user - The user data to insert
+   * @param context - The storage context containing the current user ID
    * @returns The created user with ID assigned
    */
-  async createUser(user: InsertUser): Promise<User> {
-    const [newUser] = await db.insert(users).values(user).returning();
+  async createUser(user: InsertUser, context: StorageContext): Promise<User> {
+    const [newUser] = await db
+      .insert(users)
+      .values(this.addAuditField(user, context))
+      .returning();
     return newUser;
   }
 
@@ -153,10 +192,19 @@ export class Storage implements IStorage {
    * privileges for the team.
    * 
    * @param team - The team data to insert
+   * @param context - The storage context containing the current user ID
    * @returns The created team with ID assigned
    */
-  async createTeam(team: InsertTeam): Promise<Team> {
-    const [newTeam] = await db.insert(teams).values(team).returning();
+  async createTeam(team: InsertTeam, context: StorageContext): Promise<Team> {
+    const [newTeam] = await db
+      .insert(teams)
+      .values({
+        ...this.addAuditField(team, context),
+        seasonStartDate: team.seasonStartDate ? dateToISOString(new Date(team.seasonStartDate)) : null,
+        seasonEndDate: team.seasonEndDate ? dateToISOString(new Date(team.seasonEndDate)) : null,
+        teamFee: team.teamFee?.toString()
+      })
+      .returning();
     return newTeam;
   }
 
@@ -228,10 +276,11 @@ export class Storage implements IStorage {
    * 2. Parent-based access control (viewing their children's data)
    * 
    * @param player - The player data to insert
+   * @param context - The storage context containing the current user ID
    * @returns The created player with ID assigned
    */
-  async createPlayer(player: InsertPlayer): Promise<Player> {
-    const [newPlayer] = await db.insert(players).values(player).returning();
+  async createPlayer(player: InsertPlayer, context: StorageContext): Promise<Player> {
+    const [newPlayer] = await db.insert(players).values(this.addAuditField(player, context)).returning();
     return newPlayer;
   }
 
@@ -261,12 +310,13 @@ export class Storage implements IStorage {
    * 
    * @param id - The player's unique identifier
    * @param updates - Partial player data to update
+   * @param context - The storage context containing the current user ID
    * @returns The updated player
    */
-  async updatePlayer(id: number, updates: Partial<InsertPlayer>): Promise<Player> {
+  async updatePlayer(id: number, updates: Partial<InsertPlayer>, context: StorageContext): Promise<Player> {
     const [updatedPlayer] = await db
       .update(players)
-      .set(updates)
+      .set(this.addAuditField(updates, context))
       .where(eq(players.id, id))
       .returning();
     return updatedPlayer;
@@ -276,10 +326,11 @@ export class Storage implements IStorage {
    * Create a new attendance record
    * 
    * @param record - The attendance data to insert
+   * @param context - The storage context containing the current user ID
    * @returns The created attendance record with ID assigned
    */
-  async createAttendance(record: InsertAttendance): Promise<Attendance> {
-    const [newAttendance] = await db.insert(attendance).values(record).returning();
+  async createAttendance(record: InsertAttendance, context: StorageContext): Promise<Attendance> {
+    const [newAttendance] = await db.insert(attendance).values(this.addAuditField(record, context)).returning();
     return newAttendance;
   }
 
@@ -336,9 +387,10 @@ export class Storage implements IStorage {
    * @param teamId - The team's unique identifier
    * @param date - The date to update attendance for
    * @param records - The new attendance records
+   * @param context - The storage context containing the current user ID
    * @returns Array of updated attendance records
    */
-  async updateAttendance(teamId: number, date: Date, records: InsertAttendance[]): Promise<Attendance[]> {
+  async updateAttendance(teamId: number, date: Date, records: InsertAttendance[], context: StorageContext): Promise<Attendance[]> {
     Logger.info(`[Storage] updateAttendance started for team ${teamId}`, {
       date: date.toISOString(),
       recordCount: records.length,
@@ -377,7 +429,11 @@ export class Storage implements IStorage {
           lastRecord: records[records.length - 1]
         });
         
-        const result = await db.insert(attendance).values(records).returning();
+        const recordsWithAudit = records.map(record => ({
+          ...this.addAuditField(record, context),
+          date: ensureDate(record.date)
+        }));
+        const result = await db.insert(attendance).values(recordsWithAudit).returning();
         Logger.info(`[Storage] Successfully inserted ${result.length} attendance records`);
         return result;
       }
@@ -428,9 +484,10 @@ export class Storage implements IStorage {
    * across different timezones.
    * 
    * @param note - The practice note data to insert
+   * @param context - The storage context containing the current user ID
    * @returns The created or updated practice note
    */
-  async createPracticeNote(note: InsertPracticeNote): Promise<PracticeNote> {
+  async createPracticeNote(note: InsertPracticeNote, context: StorageContext): Promise<PracticeNote> {
     try {
       // Standardize the date to UTC noon to avoid timezone issues
       const practiceDate = new Date(note.practiceDate);
@@ -465,13 +522,13 @@ export class Storage implements IStorage {
         // Create new note
         const [createdNote] = await db
           .insert(practiceNotes)
-          .values({
+          .values(this.addAuditField({
             teamId: note.teamId,
             coachId: note.coachId,
-            practiceDate: practiceDate,
+            practiceDate,
             notes: note.notes,
             playerIds: note.playerIds || []
-          })
+          }, context))
           .returning();
           
         newNote = createdNote;
@@ -532,35 +589,28 @@ export class Storage implements IStorage {
    * ensuring that the amount is properly stored in the database.
    * 
    * @param payment - The payment data to insert
+   * @param context - The storage context containing the current user ID
    * @returns The created payment record with ID assigned
    */
-  async createPayment(payment: InsertPayment): Promise<Payment> {
+  async createPayment(payment: InsertPayment, context: StorageContext): Promise<Payment> {
     try {
       // Ensure amount is properly formatted for the database
-      // The database expects a string for numeric fields when using Drizzle ORM
       const amount = typeof payment.amount === 'number' 
         ? payment.amount.toString() 
         : payment.amount;
       
       // Convert string date to Date object for the database timestamp field
-      let dateValue: Date;
-      if (typeof payment.date === 'string') {
-        Logger.info(`Converting payment date string: ${payment.date} to Date object`);
-        // Create date at noon UTC to avoid timezone issues
-        dateValue = new Date(`${payment.date}T12:00:00Z`);
-      } else {
-        dateValue = payment.date;
-      }
+      const dateValue = ensureDate(payment.date);
       
       const [newPayment] = await db
         .insert(payments)
-        .values({
+        .values(this.addAuditField({
           playerId: payment.playerId,
           teamId: payment.teamId,
-          amount, // Pass as string to match the database schema expectation
-          date: dateValue, // Use Date object for timestamp field
+          amount,
+          date: dateValue,
           notes: payment.notes
-        })
+        }, context))
         .returning();
       return newPayment;
     } catch (error) {
@@ -713,52 +763,15 @@ export class Storage implements IStorage {
   /**
    * Update a team's information
    */
-  async updateTeam(id: number, updates: Partial<Omit<InsertTeam, 'seasonStartDate' | 'seasonEndDate' | 'teamFee'>> & {
-    seasonStartDate?: string | null;
-    seasonEndDate?: string | null;
-    teamFee?: string | number | null;
-  }): Promise<Team> {
+  async updateTeam(id: number, updates: Partial<InsertTeam>, context: StorageContext): Promise<Team> {
     try {
-      Logger.info(`Updating team ${id} with data:`, updates);
-      
-      // Create a clean object for updates
-      const sanitizedUpdates: Record<string, any> = {};
-      
-      // Only include defined fields in the update
-      if (updates.name !== undefined) sanitizedUpdates.name = updates.name;
-      if (updates.description !== undefined) sanitizedUpdates.description = updates.description;
-      if (updates.coachId !== undefined) sanitizedUpdates.coachId = updates.coachId;
-      
-      // For date fields, validate format and pass through
-      if (updates.seasonStartDate !== undefined) {
-        if (isValidDateFormat(updates.seasonStartDate)) {
-          sanitizedUpdates.seasonStartDate = updates.seasonStartDate;
-        } else {
-          Logger.warn(`Invalid start date format, setting to null: ${updates.seasonStartDate}`);
-          sanitizedUpdates.seasonStartDate = null;
-        }
-      }
-      
-      if (updates.seasonEndDate !== undefined) {
-        if (isValidDateFormat(updates.seasonEndDate)) {
-          sanitizedUpdates.seasonEndDate = updates.seasonEndDate;
-        } else {
-          Logger.warn(`Invalid end date format, setting to null: ${updates.seasonEndDate}`);
-          sanitizedUpdates.seasonEndDate = null;
-        }
-      }
-      
-      // Convert teamFee to string if it's a number
-      if (updates.teamFee !== undefined) {
-        if (typeof updates.teamFee === 'number') {
-          sanitizedUpdates.teamFee = String(updates.teamFee);
-        } else {
-          sanitizedUpdates.teamFee = updates.teamFee;
-        }
-      }
-      
-      Logger.info(`Sanitized updates for team ${id}:`, sanitizedUpdates);
-      
+      const sanitizedUpdates = {
+        ...this.addAuditField(updates, context),
+        seasonStartDate: updates.seasonStartDate ? dateToISOString(new Date(updates.seasonStartDate)) : null,
+        seasonEndDate: updates.seasonEndDate ? dateToISOString(new Date(updates.seasonEndDate)) : null,
+        teamFee: updates.teamFee ? updates.teamFee.toString() : null
+      };
+
       const result = await db.update(teams)
         .set(sanitizedUpdates)
         .where(eq(teams.id, id))
@@ -781,11 +794,12 @@ export class Storage implements IStorage {
    * This method adds a user to a team with a specific role
    * 
    * @param teamMember - The team member data to insert
+   * @param context - The storage context containing the current user ID
    * @returns The created team member with ID assigned
    */
-  async createTeamMember(teamMember: InsertTeamMember): Promise<TeamMember> {
+  async createTeamMember(teamMember: InsertTeamMember, context: StorageContext): Promise<TeamMember> {
     try {
-      const [newTeamMember] = await db.insert(teamMembers).values(teamMember).returning();
+      const [newTeamMember] = await db.insert(teamMembers).values(this.addAuditField(teamMember, context)).returning();
       return newTeamMember;
     } catch (error) {
       Logger.error("Error creating team member", error);
@@ -874,12 +888,13 @@ export class Storage implements IStorage {
    * 
    * @param id - The team member's unique identifier
    * @param updates - The updated team member data
+   * @param context - The storage context containing the current user ID
    * @returns The updated team member
    */
-  async updateTeamMember(id: number, updates: Partial<InsertTeamMember>): Promise<TeamMember> {
+  async updateTeamMember(id: number, updates: Partial<InsertTeamMember>, context: StorageContext): Promise<TeamMember> {
     try {
       const result = await db.update(teamMembers)
-        .set(updates)
+        .set(this.addAuditField(updates, context))
         .where(eq(teamMembers.id, id))
         .returning();
       

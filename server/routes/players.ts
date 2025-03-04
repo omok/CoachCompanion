@@ -85,7 +85,7 @@ export function createPlayersRouter(storage: IStorage): Router {
         parentId,
       });
       
-      const player = await storage.createPlayer(parsed);
+      const player = await storage.createPlayer(parsed, { currentUserId: req.user.id });
       res.status(201).json(player);
     } catch (err) {
       handleValidationError(err, res);
@@ -311,7 +311,7 @@ export function createPlayersRouter(storage: IStorage): Router {
       if (jerseyNumber !== undefined) updates.jerseyNumber = jerseyNumber;
       
       // Update the player
-      const updatedPlayer = await storage.updatePlayer(playerId, updates);
+      const updatedPlayer = await storage.updatePlayer(playerId, updates, { currentUserId: req.user.id });
       res.json(updatedPlayer);
     } catch (err) {
       console.error('Error updating player:', err);

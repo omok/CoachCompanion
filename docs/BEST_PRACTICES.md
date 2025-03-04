@@ -93,6 +93,13 @@ This document summarizes the best practices observed in the CoachCompanion codeb
    - Type transformations handled in the schema
    - Required vs optional fields clearly defined
 
+3. **Audit Trail**
+   - All entity tables must include `lastUpdatedByUser` column
+   - This integer column references the user ID who last modified the record
+   - The storage layer automatically sets this column on create/update operations
+   - This provides a complete audit trail of data changes
+   - The current user's ID must be provided in the context for all operations
+
 ## Testing Best Practices
 
 1. **Test Organization**

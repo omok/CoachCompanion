@@ -131,10 +131,7 @@ export function createPaymentsRouter(storage: IStorage): Router {
       const dateValue = new Date(`${parsed.date}T12:00:00Z`);
       Logger.info(`Converted payment date string '${parsed.date}' to Date: ${dateValue.toISOString()}`);
       
-      const payment = await storage.createPayment({
-        ...parsed,
-        date: dateValue
-      });
+      const payment = await storage.createPayment(parsed, { currentUserId: req.user.id });
       res.status(201).json(payment);
     } catch (err) {
       handleValidationError(err, res);

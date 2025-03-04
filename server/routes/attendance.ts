@@ -126,7 +126,7 @@ export function createAttendanceRouter(storage: IStorage): Router {
         date,
         recordCount: records.length
       });
-      const attendance = await storage.updateAttendance(teamId, date, records);
+      const attendance = await storage.updateAttendance(teamId, date, records, { currentUserId: req.user.id });
       Logger.info(`[API] Successfully updated attendance`, {
         teamId,
         date: date.toISOString(),

@@ -1,3 +1,12 @@
+/**
+ * Database schema definitions using Drizzle ORM
+ * 
+ * Conventions:
+ * - All entity tables must include a lastUpdatedByUser column for audit tracking
+ * - This column stores the user ID of the person who last modified the record
+ * - The column is required (not null) to ensure audit trail completeness
+ */
+
 import { pgTable, varchar, serial, integer, boolean, timestamp, json, numeric, date } from "drizzle-orm/pg-core";
 import { z } from "zod";
 
@@ -17,6 +26,7 @@ export const users = pgTable("users", {
   password: varchar("password").notNull(),
   role: varchar("role").notNull(), 
   name: varchar("name").notNull(),
+  lastUpdatedByUser: integer("lastUpdatedByUser").notNull(),
 });
 
 export const teams = pgTable("teams", {
@@ -27,6 +37,7 @@ export const teams = pgTable("teams", {
   seasonStartDate: date("season_start_date"),
   seasonEndDate: date("season_end_date"),
   teamFee: numeric("team_fee"),
+  lastUpdatedByUser: integer("lastUpdatedByUser").notNull(),
 });
 
 // Team members table for tracking team roles
@@ -36,6 +47,7 @@ export const teamMembers = pgTable("team_members", {
   userId: integer("user_id").notNull(),
   role: varchar("role").notNull(), // 'AssistantCoach', 'TeamManager', 'Parent'
   isOwner: boolean("is_owner").notNull().default(false),
+  lastUpdatedByUser: integer("lastUpdatedByUser").notNull(),
 });
 
 // Extended type for team member with user info
@@ -56,6 +68,7 @@ export const players = pgTable("players", {
   parentId: integer("parent_id").notNull(),
   active: boolean("active").notNull().default(true),
   jerseyNumber: varchar("jersey_number"),
+  lastUpdatedByUser: integer("lastUpdatedByUser").notNull(),
 });
 
 export const attendance = pgTable("attendance", {
@@ -64,6 +77,7 @@ export const attendance = pgTable("attendance", {
   teamId: integer("team_id").notNull(),
   date: timestamp("date").notNull(),
   present: boolean("present").notNull(),
+  lastUpdatedByUser: integer("lastUpdatedByUser").notNull(),
 });
 
 export const practiceNotes = pgTable("practice_notes", {
@@ -73,6 +87,7 @@ export const practiceNotes = pgTable("practice_notes", {
   practiceDate: timestamp("practice_date").notNull(),
   notes: varchar("notes").notNull(),
   playerIds: integer("player_ids").array(),
+  lastUpdatedByUser: integer("lastUpdatedByUser").notNull(),
 });
 
 // New payments table
@@ -83,6 +98,7 @@ export const payments = pgTable("payments", {
   amount: numeric("amount").notNull(),
   date: timestamp("date").notNull(),
   notes: varchar("notes"),
+  lastUpdatedByUser: integer("lastUpdatedByUser").notNull(),
 });
 
 export const insertUserSchema = z.object({

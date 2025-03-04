@@ -83,7 +83,7 @@ export function createPracticeNotesRouter(storage: IStorage): Router {
         coachId: req.user.id,
       });
       
-      const practiceNote = await storage.createPracticeNote(parsed);
+      const practiceNote = await storage.createPracticeNote(parsed, { currentUserId: req.user.id });
       res.status(201).json(practiceNote);
     } catch (err) {
       handleValidationError(err, res);

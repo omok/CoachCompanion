@@ -191,94 +191,94 @@ export function TeamMemberList({ teamId }: { teamId: number }) {
     <div>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-semibold">Team Members</h2>
-        {false && canManageTeamSettings(teamId) && (
-          <Dialog open={dialogOpen} onOpenChange={(open) => {
-            setDialogOpen(open);
-            if (!open) {
-              setEditingMember(null);
-              form.reset();
-            }
-          }}>
+        <Dialog open={dialogOpen} onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) {
+            setEditingMember(null);
+            form.reset();
+          }
+        }}>
+          {false && canManageTeamSettings(teamId) && (
             <DialogTrigger asChild>
               <Button>
                 <UserPlus className="h-4 w-4 mr-2" />
                 Add Member
               </Button>
             </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>
-                  {editingMember ? "Edit Team Member" : "Add Team Member"}
-                </DialogTitle>
-              </DialogHeader>
-              <form
-                onSubmit={form.handleSubmit((data) =>
-                  editingMember
-                    ? updateMemberMutation.mutate({ memberId: editingMember.id, role: data.role })
-                    : addMemberMutation.mutate(data)
-                )}
-                className="space-y-4"
-              >
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    {...form.register("email")}
-                    placeholder="member@example.com"
-                    disabled={!!editingMember}
-                  />
-                </div>
+          )}
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                {editingMember ? "Edit Team Member" : "Add Team Member"}
+              </DialogTitle>
+            </DialogHeader>
+            <form
+              onSubmit={form.handleSubmit((data) =>
+                editingMember
+                  ? updateMemberMutation.mutate({ memberId: editingMember.id, role: data.role })
+                  : addMemberMutation.mutate(data)
+              )}
+              className="space-y-4"
+            >
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  {...form.register("email")}
+                  placeholder="member@example.com"
+                  disabled={!!editingMember}
+                />
+              </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="role">Role</Label>
-                  <Select
-                    onValueChange={(value) => form.setValue('role', value)}
-                    value={form.getValues('role')}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="AssistantCoach">Assistant Coach</SelectItem>
-                      <SelectItem value="TeamManager">Team Manager</SelectItem>
-                      <SelectItem value="Parent">Parent</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="role">Role</Label>
+                <Select
+                  onValueChange={(value) => form.setValue('role', value)}
+                  value={form.getValues('role')}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="AssistantCoach">Assistant Coach</SelectItem>
+                    <SelectItem value="TeamManager">Team Manager</SelectItem>
+                    <SelectItem value="Parent">Parent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-                <div className="flex justify-end gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setDialogOpen(false);
-                      setEditingMember(null);
-                      form.reset();
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={
-                      addMemberMutation.isPending || updateMemberMutation.isPending
-                    }
-                  >
-                    {addMemberMutation.isPending || updateMemberMutation.isPending ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        {editingMember ? "Editing..." : "Adding..."}
-                      </>
-                    ) : (
-                      editingMember ? "Edit Team Member" : "Add Team Member"
-                    )}
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
-        )}
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setDialogOpen(false);
+                    setEditingMember(null);
+                    form.reset();
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={
+                    addMemberMutation.isPending || updateMemberMutation.isPending
+                  }
+                >
+                  {addMemberMutation.isPending || updateMemberMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {editingMember ? "Editing..." : "Adding..."}
+                    </>
+                  ) : (
+                    editingMember ? "Edit Team Member" : "Add Team Member"
+                  )}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Table>

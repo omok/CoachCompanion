@@ -40,8 +40,8 @@ export function TeamRoster({ teamId }: { teamId: number }) {
   const [showAllPlayers, setShowAllPlayers] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
-  const [sortField, setSortField] = useState<SortField>('status');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [sortField, setSortField] = useState<SortField>('name');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   
   const form = useForm({
     resolver: zodResolver(insertPlayerSchema.omit({ teamId: true })),

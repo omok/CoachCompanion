@@ -111,12 +111,14 @@ export function AttendanceTracker({ teamId }: { teamId: number }) {
 
   // Memoize presentPlayers and absentPlayers to prevent recalculation on every render
   const presentPlayers = useMemo(() => 
-    activePlayers.filter(player => attendanceState[player.id]) || [],
+    activePlayers.filter(player => attendanceState[player.id])
+      .sort((a, b) => a.name.localeCompare(b.name)) || [],
     [activePlayers, attendanceState]
   );
   
   const absentPlayers = useMemo(() => 
-    activePlayers.filter(player => !attendanceState[player.id]) || [],
+    activePlayers.filter(player => !attendanceState[player.id])
+      .sort((a, b) => a.name.localeCompare(b.name)) || [],
     [activePlayers, attendanceState]
   );
 

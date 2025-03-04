@@ -147,8 +147,8 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
 
   // Filter players based on the toggle state - only for the dropdown
   const displayedPlayers = showAllPlayers 
-    ? players 
-    : players.filter(player => player.active);
+    ? players.sort((a, b) => a.name.localeCompare(b.name))
+    : players.filter(player => player.active).sort((a, b) => a.name.localeCompare(b.name));
 
   // Always show all players in the payment totals
   const paymentTotalsWithNames = paymentTotals

@@ -1,6 +1,6 @@
 import {
   users, teams, players, attendance, practiceNotes, payments, teamMembers,
-  type User, type Team, type Player, type Attendance, type PracticeNote, type Payment, type TeamMember,
+  type User, type Team, type Player, type Attendance, type PracticeNote, type Payment, type TeamMember, type TeamMemberWithUser,
   type InsertUser, type InsertTeam, type InsertPlayer, type InsertAttendance, type InsertPracticeNote, type InsertPayment, type InsertTeamMember
 } from "@shared/schema";
 import { db } from "./db";
@@ -65,7 +65,7 @@ export interface IStorage {
 
   // Team Member operations
   createTeamMember(teamMember: InsertTeamMember): Promise<TeamMember>;
-  getTeamMembers(teamId: number): Promise<TeamMember[]>;
+  getTeamMembers(teamId: number): Promise<TeamMemberWithUser[]>;
   getTeamMembersByUserId(userId: number): Promise<(TeamMember & { teamName?: string })[]>;
   updateTeamMember(id: number, updates: Partial<InsertTeamMember>): Promise<TeamMember>;
   deleteTeamMember(id: number): Promise<void>;
@@ -797,11 +797,23 @@ export class Storage implements IStorage {
    * Get all members of a team
    * 
    * @param teamId - The team's unique identifier
-   * @returns Array of team members for the specified team
+   * @returns Array of team members with user information for the specified team
    */
-  async getTeamMembers(teamId: number): Promise<TeamMember[]> {
+  async getTeamMembers(teamId: number): Promise<TeamMemberWithUser[]> {
     try {
-      return await db.select().from(teamMembers).where(eq(teamMembers.teamId, teamId));
+      return await db
+        .select({
+          id: teamMembers.id,
+          teamId: teamMembers.teamId,
+          userId: teamMembers.userId,
+          role: teamMembers.role,
+          isOwner: teamMembers.isOwner,
+          userName: users.name,
+          userEmail: users.username // Using username as email since that's our login field
+        })
+        .from(teamMembers)
+        .innerJoin(users, eq(teamMembers.userId, users.id))
+        .where(eq(teamMembers.teamId, teamId));
     } catch (error) {
       Logger.error("Error fetching team members", error);
       throw error;

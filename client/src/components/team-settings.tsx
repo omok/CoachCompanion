@@ -15,6 +15,7 @@ import { AuthContext } from "../contexts/AuthContext";
 import { useTeamMember } from '../hooks/useTeamMember';
 import { apiRequest } from '../lib/queryClient';
 import { useAuth } from '../hooks/use-auth';
+import { TeamMemberList } from './team-member-list';
 
 // Define TeamSettings type with proper validation markers
 type TeamSettings = {
@@ -550,6 +551,7 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
         <div className="space-y-8">
           {/* General Team Settings Section */}
           <div>
+            <h2 className="text-xl font-semibold mb-4">General Settings</h2>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Team Name *</Label>
@@ -609,14 +611,7 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
               </div>
               
               <div className="flex justify-end space-x-2 pt-4">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => setLocation(`/teams/${teamId}`)}
-                >
-                  Cancel
-                </Button>
-                <Button 
+                             <Button 
                   type="submit" 
                   disabled={updateTeamMutation.isPending}
                 >
@@ -624,6 +619,13 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
                 </Button>
               </div>
             </form>
+          </div>
+
+          <Separator className="my-8" />
+
+          {/* Member Management Section */}
+          <div>
+            <TeamMemberList teamId={teamId} />
           </div>
         </div>
 

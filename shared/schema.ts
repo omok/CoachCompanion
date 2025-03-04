@@ -38,6 +38,17 @@ export const teamMembers = pgTable("team_members", {
   isOwner: boolean("is_owner").notNull().default(false),
 });
 
+// Extended type for team member with user info
+export type TeamMemberWithUser = {
+  id: number;
+  teamId: number;
+  userId: number;
+  role: string;
+  isOwner: boolean;
+  userName: string;
+  userEmail: string;
+};
+
 export const players = pgTable("players", {
   id: serial("id").primaryKey(),
   name: varchar("name").notNull(),

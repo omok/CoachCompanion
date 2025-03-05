@@ -5,6 +5,7 @@ import { IStorage } from "../storage";
 import express from 'express';
 import { requireTeamRolePermission } from '../utils/authorization';
 import { USER_ROLES, TEAM_ROLES } from '@shared/constants';
+import { TEAM_PERMISSION_KEYS } from '@shared/access-control';
 
 /**
  * Validate date format - YYYY-MM-DD
@@ -83,12 +84,10 @@ export function createTeamsRouter(storage: IStorage): Router {
   /**
    * Get teams for the authenticated user
    * 
-   * This endpoint returns different teams based on the user's role:
-   * - Coaches see teams they coach (direct relationship)
-   * - Parents see teams their children are on (indirect relationship through players)
-   * 
-   * This dual behavior allows the same endpoint to be used by both user types
-   * while maintaining proper data access controls.
+   * This endpoint returns teams based on the user's role and team memberships:
+   * - Returns all teams where the user is a member (regardless of role)
+   * - For coaches: also includes teams they coach (direct relationship)
+   * - For parents: also includes teams their children are on (indirect relationship through players)
    * 
    * Authorization:
    * - User must be authenticated
@@ -104,19 +103,33 @@ export function createTeamsRouter(storage: IStorage): Router {
           message: 'You must be logged in to perform this action'
         });
       }
+
+      // Get teams where user is a member
+      const teamMemberships = await storage.getTeamMembersByUserId(req.user.id);
+      const memberTeamIds = teamMemberships.map(tm => tm.teamId);
       
-      // Different behavior based on user role
+      // Get teams based on role-specific relationships
+      let roleTeamIds: number[] = [];
       if (req.user.role === USER_ROLES.COACH) {
         // Coaches see teams they coach
-        const teams = await storage.getTeamsByCoachId(req.user.id);
-        res.json(teams);
+        const coachTeams = await storage.getTeamsByCoachId(req.user.id);
+        roleTeamIds = coachTeams.map(t => t.id);
       } else if (req.user.role === USER_ROLES.PARENT) {
         // Parents see teams their children are on
-        const teams = await storage.getTeamsByParentId(req.user.id);
-        res.json(teams);
-      } else {
-        res.json([]);
+        const parentTeams = await storage.getTeamsByParentId(req.user.id);
+        roleTeamIds = parentTeams.map(t => t.id);
       }
+
+      // Combine and deduplicate team IDs
+      const allTeamIds = Array.from(new Set([...memberTeamIds, ...roleTeamIds]));
+      
+      // Fetch all teams
+      const teams = await Promise.all(
+        allTeamIds.map(id => storage.getTeam(id))
+      );
+
+      // Filter out any null results (in case a team was deleted)
+      res.json(teams.filter(Boolean));
     } catch (err) {
       console.error('Error fetching teams:', err);
       res.status(500).json({
@@ -162,9 +175,9 @@ export function createTeamsRouter(storage: IStorage): Router {
 
   /**
    * Update team settings
-   * Requires 'manageTeamSettings' permission
+   * Requires MANAGE_TEAM_SETTINGS permission
    */
-  router.put('/:teamId', requireTeamRolePermission('manageTeamSettings'), async (req, res) => {
+  router.put('/:teamId', requireTeamRolePermission(TEAM_PERMISSION_KEYS.MANAGE_TEAM_SETTINGS), async (req, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({

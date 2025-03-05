@@ -100,52 +100,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  /**
-   * Get teams for the authenticated user
-   * 
-   * This endpoint returns different teams based on the user's role:
-   * - Coaches see teams they coach (direct relationship)
-   * - Parents see teams their children are on (indirect relationship through players)
-   * 
-   * This dual behavior allows the same endpoint to be used by both user types
-   * while maintaining proper data access controls.
-   * 
-   * Authorization:
-   * - User must be authenticated
-   * 
-   * @route GET /api/teams
-   * @returns Array of teams relevant to the authenticated user
-   */
-  app.get("/api/teams", async (req, res) => {
-    try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).json({
-          error: 'Authentication Required',
-          message: 'You must be logged in to perform this action'
-        });
-      }
-      
-      // Different behavior based on user role
-      if (req.user.role === "coach") {
-        // Coaches see teams they coach
-        const teams = await storage.getTeamsByCoachId(req.user.id);
-        res.json(teams);
-      } else if (req.user.role === "parent") {
-        // Parents see teams their children are on
-        const teams = await storage.getTeamsByParentId(req.user.id);
-        res.json(teams);
-      } else {
-        res.json([]);
-      }
-    } catch (err) {
-      console.error('Error fetching teams:', err);
-      res.status(500).json({
-        error: 'Server Error',
-        message: 'An error occurred while fetching teams'
-      });
-    }
-  });
-
   // ==================== PLAYER ENDPOINTS ====================
 
   /**

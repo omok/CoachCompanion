@@ -19,10 +19,19 @@ import {
   Settings,
 } from "lucide-react";
 import { CreateTeamDialog } from "@/components/create-team-dialog";
-import { USER_ROLES } from '@shared/constants';
+import { USER_ROLES, type UserRole } from '@shared/constants';
+import { userRoleHasPermission, USER_ROLE_PERMISSIONS } from '@shared/access-control';
+import { usePermissions } from "@/hooks/usePermissions";
 
 export default function Dashboard() {
   const { user, logoutMutation } = useAuth();
+  const { 
+    canSeeTeamRoster,
+    canTakeAttendance,
+    canAddPracticeNote,
+    canManagePayments,
+    canManageTeamSettings
+  } = usePermissions();
   const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<"roster" | "attendance" | "notes" | "payments" | "settings">("roster");
 
@@ -59,7 +68,7 @@ export default function Dashboard() {
                   {team.name}
                 </Button>
               ))}
-              {user?.role === USER_ROLES.COACH && <CreateTeamDialog />}
+              {user?.role && userRoleHasPermission(user.role as UserRole, USER_ROLE_PERMISSIONS.CREATE_NEW_TEAM) && <CreateTeamDialog />}
             </div>
           )}
         </div>
@@ -68,23 +77,27 @@ export default function Dashboard() {
         {selectedTeamId && (
           <div className="p-4 border-b">
             <nav className="space-y-1">
-              <Button
-                variant={activeTab === "roster" ? "secondary" : "ghost"}
-                className="w-full justify-start"
-                onClick={() => setActiveTab("roster")}
-              >
-                <Users className="h-4 w-4 mr-2" />
-                Team Roster
-              </Button>
-              <Button
-                variant={activeTab === "attendance" ? "secondary" : "ghost"}
-                className="w-full justify-start"
-                onClick={() => setActiveTab("attendance")}
-              >
-                <CalendarCheck className="h-4 w-4 mr-2" />
-                Attendance
-              </Button>
-              {user?.role === USER_ROLES.COACH && (
+              {canSeeTeamRoster(selectedTeamId) && (
+                <Button
+                  variant={activeTab === "roster" ? "secondary" : "ghost"}
+                  className="w-full justify-start"
+                  onClick={() => setActiveTab("roster")}
+                >
+                  <Users className="h-4 w-4 mr-2" />
+                  Team Roster
+                </Button>
+              )}
+              {canTakeAttendance(selectedTeamId) && (
+                <Button
+                  variant={activeTab === "attendance" ? "secondary" : "ghost"}
+                  className="w-full justify-start"
+                  onClick={() => setActiveTab("attendance")}
+                >
+                  <CalendarCheck className="h-4 w-4 mr-2" />
+                  Attendance
+                </Button>
+              )}
+              {canAddPracticeNote(selectedTeamId) && (
                 <Button
                   variant={activeTab === "notes" ? "secondary" : "ghost"}
                   className="w-full justify-start"
@@ -94,7 +107,7 @@ export default function Dashboard() {
                   Practice Notes
                 </Button>
               )}
-              {user?.role === USER_ROLES.COACH && (
+              {canManagePayments(selectedTeamId) && (
                 <Button
                   variant={activeTab === "payments" ? "secondary" : "ghost"}
                   className="w-full justify-start"
@@ -104,7 +117,7 @@ export default function Dashboard() {
                   Payments
                 </Button>
               )}
-              {user?.role === USER_ROLES.COACH && (
+              {canManageTeamSettings(selectedTeamId) && (
                 <Button
                   variant={activeTab === "settings" ? "secondary" : "ghost"}
                   className="w-full justify-start"
@@ -140,15 +153,11 @@ export default function Dashboard() {
         ) : (
           <>
             <h1 className="text-2xl font-bold mb-6">{selectedTeam?.name}</h1>
-            {activeTab === "roster" && <TeamRoster teamId={selectedTeamId} />}
-            {activeTab === "attendance" && <AttendanceTracker teamId={selectedTeamId} />}
-            {activeTab === "notes" && user?.role === USER_ROLES.COACH && <PracticeNotes teamId={selectedTeamId} />}
-            {activeTab === "payments" && user?.role === USER_ROLES.COACH && (
-              <PaymentTracker teamId={selectedTeamId} />
-            )}
-            {activeTab === "settings" && user?.role === USER_ROLES.COACH && (
-              <TeamSettings teamId={selectedTeamId} />
-            )}
+            {activeTab === "roster" && canSeeTeamRoster(selectedTeamId) && <TeamRoster teamId={selectedTeamId} />}
+            {activeTab === "attendance" && canTakeAttendance(selectedTeamId) && <AttendanceTracker teamId={selectedTeamId} />}
+            {activeTab === "notes" && canAddPracticeNote(selectedTeamId) && <PracticeNotes teamId={selectedTeamId} />}
+            {activeTab === "payments" && canManagePayments(selectedTeamId) && <PaymentTracker teamId={selectedTeamId} />}
+            {activeTab === "settings" && canManageTeamSettings(selectedTeamId) && <TeamSettings teamId={selectedTeamId} />}
           </>
         )}
       </div>

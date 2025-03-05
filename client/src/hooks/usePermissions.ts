@@ -1,6 +1,13 @@
 import { useContext, useCallback } from 'react';
-import { teamRolePermissions, userTypePermissions } from '@shared/access-control';
-import { TeamRole, UserType } from '@shared/access-control';
+import { 
+  teamRolePermissions, 
+  userRolePermissions, 
+  USER_ROLE_PERMISSIONS, 
+  TEAM_ROLE_PERMISSIONS,
+  type UserRolePermissions,
+  type TeamRolePermissions
+} from '@shared/access-control';
+import { TeamRole, UserRole } from '@shared/constants';
 import { AuthContext } from '../contexts/AuthContext';
 import { useTeamMember, TeamMembership } from './useTeamMember';
 
@@ -9,7 +16,7 @@ import { useTeamMember, TeamMembership } from './useTeamMember';
  */
 export function usePermissions() {
   const authContext = useContext(AuthContext);
-  const user = authContext?.user || null; // Safely handle potential null AuthContext
+  const user = authContext?.user || null;
   
   const { teamMembership, isLoading: isMembershipLoading } = useTeamMember();
 
@@ -28,20 +35,20 @@ export function usePermissions() {
   }, [user, teamMembership]);
 
   /**
-   * Check if the current user has a specific user type permission
+   * Check if the current user has a specific user role permission
    */
-  const hasUserTypePermission = useCallback((permission: keyof typeof userTypePermissions[UserType]) => {
+  const hasUserRolePermission = useCallback((permission: keyof UserRolePermissions) => {
     if (!user) {
       logPermissionCheck('user', false, { permission, reason: 'No user logged in' });
       return false;
     }
     
-    const hasPermission = userTypePermissions[user.role as UserType]?.[permission] ?? false;
+    const hasPermission = userRolePermissions[user.role as UserRole]?.[permission] ?? false;
     
     logPermissionCheck('user', hasPermission, { 
       permission, 
       userRole: user.role,
-      permissionMap: userTypePermissions[user.role as UserType]
+      permissionMap: userRolePermissions[user.role as UserRole]
     });
     
     return hasPermission;
@@ -52,7 +59,7 @@ export function usePermissions() {
    */
   const hasTeamRolePermission = useCallback((
     teamId: number, 
-    permission: keyof typeof teamRolePermissions[TeamRole]
+    permission: keyof TeamRolePermissions
   ) => {
     // Special handling for when we're still loading team membership data
     if (isMembershipLoading) {
@@ -125,17 +132,17 @@ export function usePermissions() {
   }, [user, teamMembership, isMembershipLoading, logPermissionCheck]);
 
   return {
-    hasUserTypePermission,
+    hasUserRolePermission,
     hasTeamRolePermission,
     
     // Convenience functions for common permission checks
-    canCreateTeam: hasUserTypePermission('createNewTeam'),
-    canBeInvitedAsAssistantCoach: hasUserTypePermission('canBeInvitedAsAssistantCoach'),
-    canSeeTeamRoster: (teamId: number) => hasTeamRolePermission(teamId, 'seeTeamRoster'),
-    canAddPlayer: (teamId: number) => hasTeamRolePermission(teamId, 'addPlayer'),
-    canTakeAttendance: (teamId: number) => hasTeamRolePermission(teamId, 'takeAttendance'),
-    canAddPracticeNote: (teamId: number) => hasTeamRolePermission(teamId, 'addPracticeNote'),
-    canManagePayments: (teamId: number) => hasTeamRolePermission(teamId, 'managePayments'),
-    canManageTeamSettings: (teamId: number) => hasTeamRolePermission(teamId, 'manageTeamSettings'),
+    canCreateTeam: hasUserRolePermission(USER_ROLE_PERMISSIONS.CREATE_NEW_TEAM),
+    canBeInvitedAsAssistantCoach: hasUserRolePermission(USER_ROLE_PERMISSIONS.CAN_BE_INVITED_AS_ASSISTANT_COACH),
+    canSeeTeamRoster: (teamId: number) => hasTeamRolePermission(teamId, TEAM_ROLE_PERMISSIONS.SEE_TEAM_ROSTER),
+    canAddPlayer: (teamId: number) => hasTeamRolePermission(teamId, TEAM_ROLE_PERMISSIONS.ADD_PLAYER),
+    canTakeAttendance: (teamId: number) => hasTeamRolePermission(teamId, TEAM_ROLE_PERMISSIONS.TAKE_ATTENDANCE),
+    canAddPracticeNote: (teamId: number) => hasTeamRolePermission(teamId, TEAM_ROLE_PERMISSIONS.ADD_PRACTICE_NOTE),
+    canManagePayments: (teamId: number) => hasTeamRolePermission(teamId, TEAM_ROLE_PERMISSIONS.MANAGE_PAYMENTS),
+    canManageTeamSettings: (teamId: number) => hasTeamRolePermission(teamId, TEAM_ROLE_PERMISSIONS.MANAGE_TEAM_SETTINGS),
   };
 } 

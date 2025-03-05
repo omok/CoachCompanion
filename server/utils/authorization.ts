@@ -6,10 +6,11 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { 
-  userTypeHasPermission, 
+  userRoleHasPermission, 
   teamRoleHasPermission,
-  type UserTypePermissions,
-  type TeamRolePermissions 
+  type UserRolePermissions,
+  type TeamRolePermissions,
+  TEAM_ROLE_PERMISSIONS
 } from '@shared/access-control';
 import { db } from '../db';
 import { teams, users, teamMembers } from '@shared/schema';
@@ -49,49 +50,9 @@ function getUserId(req: Request): number | null {
 }
 
 /**
- * Middleware to check if user has a specific user type permission
- */
-export function requireUserTypePermission(permission: keyof UserTypePermissions) {
-  return async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const userId = getUserId(req);
-      
-      if (!userId) {
-        console.log('[Auth] requireUserTypePermission - No user ID found', { 
-          session: req.session,
-          isAuthenticated: req.isAuthenticated(),
-          user: req.user
-        });
-        return res.status(401).json({ error: 'Unauthorized' });
-      }
-
-      // Get user role from database
-      const user = await db.query.users.findFirst({
-        where: eq(users.id, userId)
-      });
-
-      if (!user) {
-        return res.status(401).json({ error: 'User not found' });
-      }
-
-      const userRole = user.role as UserRole;
-      
-      if (userTypeHasPermission(userRole, permission)) {
-        next();
-      } else {
-        res.status(403).json({ error: 'Forbidden' });
-      }
-    } catch (error) {
-      console.error('Authorization error:', error);
-      res.status(500).json({ error: 'Server error' });
-    }
-  };
-}
-
-/**
  * Middleware to check if user has a specific team role permission
  */
-export function requireTeamRolePermission(permission: keyof TeamRolePermissions) {
+export function requireTeamRolePermission(permission: keyof typeof TEAM_ROLE_PERMISSIONS) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = getUserId(req);
@@ -139,7 +100,7 @@ export function requireTeamRolePermission(permission: keyof TeamRolePermissions)
 
       const roleInTeam = membership.role as TeamRole;
       
-      if (teamRoleHasPermission(roleInTeam, permission)) {
+      if (teamRoleHasPermission(roleInTeam, TEAM_ROLE_PERMISSIONS[permission])) {
         next();
       } else {
         res.status(403).json({ error: 'Insufficient permissions' });

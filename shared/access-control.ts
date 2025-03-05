@@ -11,13 +11,38 @@
 import { USER_ROLES, TEAM_ROLES, type UserRole, type TeamRole } from './constants';
 
 /**
- * Permissions available to different user types
+ * Constants for user role permissions
+ * Use these instead of string literals to prevent typos
  */
-export interface UserTypePermissions {
+export const USER_ROLE_PERMISSIONS = {
+  CREATE_NEW_TEAM: 'createNewTeam',
+  CAN_BE_INVITED_AS_ASSISTANT_COACH: 'canBeInvitedAsAssistantCoach',
+} as const;
+
+/**
+ * Constants for team role permissions
+ * Use these instead of string literals to prevent typos
+ */
+export const TEAM_ROLE_PERMISSIONS = {
+  SEE_TEAM_ROSTER: 'seeTeamRoster',
+  ADD_PLAYER: 'addPlayer',
+  TAKE_ATTENDANCE: 'takeAttendance',
+  ADD_PRACTICE_NOTE: 'addPracticeNote',
+  MANAGE_PAYMENTS: 'managePayments',
+  INVITE_TEAM_MEMBERS: 'inviteTeamMembers',
+  REMOVE_TEAM_MEMBERS: 'removeTeamMembers',
+  DELETE_TEAM: 'deleteTeam',
+  MANAGE_TEAM_SETTINGS: 'manageTeamSettings',
+} as const;
+
+/**
+ * Permissions available to different user roles
+ */
+export interface UserRolePermissions {
   /** Can create a new team (and become its owner) */
-  createNewTeam: boolean;
+  [USER_ROLE_PERMISSIONS.CREATE_NEW_TEAM]: boolean;
   /** Can be invited to join a team as an assistant coach */
-  canBeInvitedAsAssistantCoach: boolean;
+  [USER_ROLE_PERMISSIONS.CAN_BE_INVITED_AS_ASSISTANT_COACH]: boolean;
 }
 
 /**
@@ -25,29 +50,29 @@ export interface UserTypePermissions {
  */
 export interface TeamRolePermissions {
   /** Can view the team's roster of players */
-  seeTeamRoster: boolean;
+  [TEAM_ROLE_PERMISSIONS.SEE_TEAM_ROSTER]: boolean;
   /** Can add new players to the team */
-  addPlayer: boolean;
+  [TEAM_ROLE_PERMISSIONS.ADD_PLAYER]: boolean;
   /** Can record attendance for practice sessions */
-  takeAttendance: boolean;
+  [TEAM_ROLE_PERMISSIONS.TAKE_ATTENDANCE]: boolean;
   /** Can add practice notes for the team or individual players */
-  addPracticeNote: boolean;
+  [TEAM_ROLE_PERMISSIONS.ADD_PRACTICE_NOTE]: boolean;
   /** Can manage payments and financial records */
-  managePayments: boolean;
+  [TEAM_ROLE_PERMISSIONS.MANAGE_PAYMENTS]: boolean;
   /** Can invite new members to the team (coaches, managers, etc.) */
-  inviteTeamMembers: boolean;
+  [TEAM_ROLE_PERMISSIONS.INVITE_TEAM_MEMBERS]: boolean;
   /** Can remove members from the team */
-  removeTeamMembers: boolean;
+  [TEAM_ROLE_PERMISSIONS.REMOVE_TEAM_MEMBERS]: boolean;
   /** Can delete the entire team */
-  deleteTeam: boolean;
+  [TEAM_ROLE_PERMISSIONS.DELETE_TEAM]: boolean;
   /** Can access and modify team settings (name, dates, fees, etc.) */
-  manageTeamSettings: boolean;
+  [TEAM_ROLE_PERMISSIONS.MANAGE_TEAM_SETTINGS]: boolean;
 }
 
 /**
- * Permission configuration for User Types
+ * Permission configuration for User Roles
  * 
- * This object defines what permissions each user type has in the system.
+ * This object defines what permissions each user role has in the system.
  * 
  * ---------------------------------------------------------
  * | Permission                 | Coach | Parent           |
@@ -56,14 +81,14 @@ export interface TeamRolePermissions {
  * | canBeInvitedAsAssistantCoach |   ✓   |   ✗            |
  * ---------------------------------------------------------
  */
-export const userTypePermissions: Record<UserRole, UserTypePermissions> = {
+export const userRolePermissions: Record<UserRole, UserRolePermissions> = {
   [USER_ROLES.COACH]: {
-    createNewTeam: true,
-    canBeInvitedAsAssistantCoach: true,
+    [USER_ROLE_PERMISSIONS.CREATE_NEW_TEAM]: true,
+    [USER_ROLE_PERMISSIONS.CAN_BE_INVITED_AS_ASSISTANT_COACH]: true,
   },
   [USER_ROLES.PARENT]: {
-    createNewTeam: false,
-    canBeInvitedAsAssistantCoach: false,
+    [USER_ROLE_PERMISSIONS.CREATE_NEW_TEAM]: false,
+    [USER_ROLE_PERMISSIONS.CAN_BE_INVITED_AS_ASSISTANT_COACH]: false,
   },
 };
 
@@ -134,14 +159,17 @@ export const teamRolePermissions: Record<TeamRole, TeamRolePermissions> = {
 };
 
 /**
- * Check if a user type has a specific permission
+ * Check if a user role has a specific permission
  * 
- * @param userType The type of user (Coach or Parent)
- * @param permission The permission to check
- * @returns Whether the user type has the requested permission
+ * @param userRole The role of the user (Coach or Parent)
+ * @param permission The permission to check from USER_ROLE_PERMISSIONS
+ * @returns Whether the user role has the requested permission
  */
-export function userTypeHasPermission(userType: UserRole, permission: keyof UserTypePermissions): boolean {
-  return userTypePermissions[userType][permission];
+export function userRoleHasPermission(
+  userRole: UserRole, 
+  permission: typeof USER_ROLE_PERMISSIONS[keyof typeof USER_ROLE_PERMISSIONS]
+): boolean {
+  return userRolePermissions[userRole][permission];
 }
 
 /**
@@ -159,8 +187,8 @@ export function teamRoleHasPermission(role: TeamRole, permission: keyof TeamRole
  * How to Update Permissions:
  * 
  * To update a permission:
- * 1. Find the appropriate object (userTypePermissions or teamRolePermissions)
- * 2. Locate the user type or team role you want to modify
+ * 1. Find the appropriate object (userRolePermissions or teamRolePermissions)
+ * 2. Locate the user role or team role you want to modify
  * 3. Change the boolean value for the permission
  * 
  * Example:

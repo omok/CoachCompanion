@@ -8,6 +8,7 @@ import { createAttendanceRouter } from "./attendance";
 import { createPracticeNotesRouter } from "./practice-notes";
 import { createPaymentsRouter } from "./payments";
 import { createTeamMembersRouter } from "./team-members";
+import { RouteRegistry } from "../utils/RouteRegistry";
 
 /**
  * Register all API routes for the application
@@ -26,6 +27,9 @@ import { createTeamMembersRouter } from "./team-members";
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication
   setupAuth(app);
+
+  // Initialize route registry
+  const registry = new RouteRegistry();
 
   // Add debug endpoint for session and auth
   app.get("/api/debug/auth", (req, res) => {
@@ -69,6 +73,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       message: `API endpoint not found: ${req.method} ${req.path}`
     });
   });
+
+  // Scan for duplicate routes after all routes are registered
+  registry.scanExpress(app);
+  
+  // Log all registered routes in development
+  if (process.env.NODE_ENV === 'development') {
+    console.log('\nRegistered Routes:');
+    registry.getRoutes().sort().forEach(route => {
+      console.log(`  ${route}`);
+    });
+    console.log();
+  }
 
   // Create and return HTTP server
   return createServer(app);

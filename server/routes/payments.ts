@@ -1,8 +1,12 @@
-import { Router, Request } from "express";
+import { Router } from "express";
+import type { Request } from "express";
+import type { ParamsDictionary } from "express-serve-static-core";
 import { insertPaymentSchema } from "@shared/schema";
 import { handleValidationError } from "./utils";
 import { IStorage } from "../storage";
 import { Logger } from "../logger";
+import { requireTeamRolePermission } from '../utils/authorization';
+import { TEAM_PERMISSION_KEYS } from '@shared/access-control';
 
 // Validate date format - YYYY-MM-DD
 function isValidDateFormat(dateStr: string | null): boolean {
@@ -32,7 +36,7 @@ function formatPaymentDatesForClient(payments: any[]) {
 }
 
 // Define interface for request params
-interface TeamParams {
+interface TeamParams extends ParamsDictionary {
   teamId: string;
 }
 
@@ -52,17 +56,16 @@ export function createPaymentsRouter(storage: IStorage): Router {
   /**
    * Record a payment for a team
    * 
-   * This endpoint allows coaches to record payments for a team.
+   * This endpoint allows authorized team members to record payments for a team.
    * The business logic includes:
    * 
-   * 1. Validates that the coach has permission to record payments for the team
+   * 1. Validates that the user has permission to record payments for the team
    * 2. Ensures the payment data is valid (amount, player, date)
    * 3. Creates a payment record in the database
    * 
    * Authorization:
    * - User must be authenticated
-   * - User must have the 'coach' role
-   * - User must be the coach of the team
+   * - User must have MANAGE_PAYMENTS permission for the team
    * 
    * @route POST /api/teams/:teamId/payments
    * @param teamId - The team ID to record payment for
@@ -72,15 +75,15 @@ export function createPaymentsRouter(storage: IStorage): Router {
    * @body notes - Optional notes about the payment
    * @returns The created payment record with ID assigned
    */
-  router.post("/", async (req: Request<TeamParams>, res) => {
+  router.post("/", requireTeamRolePermission(TEAM_PERMISSION_KEYS.MANAGE_PAYMENTS), async (req: Request<TeamParams>, res) => {
     try {
-      if (!req.isAuthenticated() || req.user.role !== "coach") {
+      if (!req.user) {
         return res.status(401).json({
           error: 'Authentication Required',
-          message: 'You must be logged in as a coach to record payments'
+          message: 'You must be logged in to record payments'
         });
       }
-      
+
       const teamId = parseInt(req.params.teamId);
       if (isNaN(teamId)) {
         return res.status(400).json({
@@ -89,22 +92,7 @@ export function createPaymentsRouter(storage: IStorage): Router {
         });
       }
       
-      const team = await storage.getTeam(teamId);
-      if (!team) {
-        return res.status(404).json({
-          error: 'Not Found',
-          message: `Team with ID ${teamId} not found`
-        });
-      }
-      
-      if (team.coachId !== req.user.id) {
-        return res.status(403).json({
-          error: 'Permission Denied',
-          message: 'You do not have permission to record payments for this team'
-        });
-      }
-      
-      // Validate date format before parsing
+      // Validate the date format before parsing
       if (!isValidDateFormat(req.body.date)) {
         Logger.warn(`Invalid date format received: ${req.body.date}`);
         return res.status(400).json({

@@ -235,7 +235,7 @@ export function TeamMemberList({ teamId }: { teamId: number }) {
                 <Label htmlFor="role">Role</Label>
                 <Select
                   onValueChange={(value) => form.setValue('role', value)}
-                  value={form.getValues('role')}
+                  value={form.watch('role')}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select a role" />

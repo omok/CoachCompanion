@@ -26,12 +26,6 @@ export function usePermissions() {
     checkResult: boolean, 
     details: any
   ) => {
-    console.log(`[Permissions] ${type} permission check:`, { 
-      result: checkResult ? 'GRANTED' : 'DENIED',
-      ...details,
-      user: user ? { id: user.id, role: user.role } : 'Not logged in',
-      teamMembershipCount: teamMembership?.length || 0
-    });
   }, [user, teamMembership]);
 
   /**
@@ -39,17 +33,10 @@ export function usePermissions() {
    */
   const hasUserRolePermission = useCallback((permission: keyof UserRolePermissions) => {
     if (!user) {
-      logPermissionCheck('user', false, { permission, reason: 'No user logged in' });
       return false;
     }
     
     const hasPermission = userRolePermissions[user.role as UserRole]?.[permission] ?? false;
-    
-    logPermissionCheck('user', hasPermission, { 
-      permission, 
-      userRole: user.role,
-      permissionMap: userRolePermissions[user.role as UserRole]
-    });
     
     return hasPermission;
   }, [user, logPermissionCheck]);
@@ -63,11 +50,6 @@ export function usePermissions() {
   ) => {
     // Special handling for when we're still loading team membership data
     if (isMembershipLoading) {
-      logPermissionCheck('team', false, { 
-        teamId, 
-        permission, 
-        reason: 'Team membership data is still loading'
-      });
       // Return true for basic viewing permissions if we're still loading
       if (permission === 'seeTeamRoster') {
         return true; // Allow roster viewing while loading
@@ -76,45 +58,18 @@ export function usePermissions() {
     }
 
     if (!user) {
-      logPermissionCheck('team', false, { teamId, permission, reason: 'No user logged in' });
       return false;
     }
-    
-    // Log the team membership data we're working with
-    console.log(`[Permissions] Checking team permission for teamId ${teamId}:`, {
-      permission,
-      teamMembership,
-      isLoading: isMembershipLoading
-    });
     
     // If user is team owner, they have all permissions
     const team = teamMembership?.find((tm: TeamMembership) => tm.teamId === teamId);
     
-    if (!team) {
-      logPermissionCheck('team', false, { 
-        teamId, 
-        permission, 
-        reason: 'User is not a member of this team',
-        availableTeams: teamMembership?.map(tm => tm.teamId)
-      });
-      
-      // FOR DEBUGGING: Temporarily allow team settings access regardless of team membership
-      if (permission === 'manageTeamSettings') {
-        console.log('[Permissions] DEBUG OVERRIDE: Allowing manageTeamSettings despite lack of membership');
-        return true;
-      }
-      
+    if (!team) {      
       return false;
     }
     
     // Team owners have all permissions
     if (team.isOwner) {
-      logPermissionCheck('team', true, { 
-        teamId, 
-        permission, 
-        reason: 'User is the team owner',
-        teamRole: 'Owner'
-      });
       return true;
     }
     

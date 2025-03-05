@@ -37,7 +37,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Log auth state changes
   useEffect(() => {
-    console.log('[Auth] Auth state changed:', { user, isLoading, error });
   }, [user, isLoading, error]);
 
   // Force refresh user data on mount
@@ -47,10 +46,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshUser = async () => {
-    console.log('[Auth] Manually refreshing user data');
     try {
       await refetch();
-      console.log('[Auth] User refresh completed:', user);
     } catch (err) {
       console.error('[Auth] User refresh failed:', err);
     }
@@ -58,7 +55,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginData) => {
-      console.log('[Auth] Login attempt:', { username: credentials.username });
       const res = await apiRequest("POST", "/api/login", credentials);
       
       if (!res.ok) {
@@ -80,7 +76,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return await res.json();
     },
     onSuccess: (user: SelectUser) => {
-      console.log('[Auth] Login successful:', user);
       queryClient.setQueryData(["/api/user"], user);
       // Also invalidate related queries
       queryClient.invalidateQueries({
@@ -133,11 +128,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      console.log('[Auth] Logging out');
       await apiRequest("POST", "/api/logout");
     },
     onSuccess: () => {
-      console.log('[Auth] Logout successful');
       queryClient.setQueryData(["/api/user"], null);
       // Clear all queries from cache on logout
       queryClient.invalidateQueries();

@@ -26,14 +26,6 @@ export function useTeamMember() {
   
   const [requestLogs, setRequestLogs] = useState<any[]>([]);
   const logRef = useRef<any[]>([]);
-  
-  const addLog = useCallback((type: string, data: any) => {
-    const timestamp = new Date().toISOString();
-    const log = { timestamp, type, data };
-    logRef.current = [...logRef.current, log];
-    setRequestLogs(prev => [...prev, log]);
-    console.log(`[TeamMembership] ${type}:`, data);
-  }, []);
 
   // Use React Query for team memberships
   const { 
@@ -45,40 +37,25 @@ export function useTeamMember() {
     queryKey: ['/api/user/teams'],
     queryFn: async () => {
       if (!user) {
-        addLog('USER_MISSING', { message: 'No user available, skipping fetch' });
         return [];
       }
 
       try {
-        addLog('FETCH_START', { userId: user.id });
-        addLog('FETCH_URL', { url: '/api/user/teams' });
         
         const response = await fetch('/api/user/teams', { 
           credentials: 'include'
         });
         
-        addLog('FETCH_RESPONSE', { 
-          status: response.status, 
-          statusText: response.statusText,
-          headers: Object.fromEntries(response.headers.entries()),
-        });
-        
         if (!response.ok) {
           const errorText = await response.text();
-          addLog('FETCH_ERROR_RESPONSE', { 
-            status: response.status,
-            errorText
-          });
           throw new Error(`Failed to fetch team memberships: ${response.status} ${response.statusText} - ${errorText}`);
         }
         
         const data = await response.json();
-        addLog('FETCH_DATA', { data });
         
         return data;
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to load team memberships';
-        addLog('FETCH_ERROR', { message: errorMessage });
         console.error('Error fetching team memberships:', err);
         throw err;
       }

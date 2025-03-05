@@ -278,7 +278,6 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
       // First check auth state on server
       const authCheckResponse = await fetch('/api/debug/auth', { credentials: 'include' });
       const authCheckData = await authCheckResponse.json();
-      setDebugResponse(authCheckData);
       
       // Then force refresh the user data in React Query cache
       await refreshUser();
@@ -415,45 +414,6 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
             <AlertTitle>Permission Denied</AlertTitle>
             <AlertDescription>You don't have permission to access team settings.</AlertDescription>
           </Alert>
-
-          {showDebug && (
-            <div className="mt-6 p-4 bg-gray-100 rounded-md">
-              <h3 className="text-lg font-bold mb-2">Debug Information</h3>
-              <div className="text-xs font-mono overflow-auto">
-                <div className="mb-2">
-                  <strong>Team ID:</strong> {teamId}
-                </div>
-                <div className="mb-2">
-                  <strong>Current User:</strong> {user ? JSON.stringify(user, null, 2) : 'Not logged in'}
-                </div>
-                <div className="mb-2">
-                  <strong>Team Membership Loading:</strong> {isTeamMembershipLoading ? 'Yes' : 'No'}
-                </div>
-                <div className="mb-2">
-                  <strong>Team Memberships:</strong> {teamMembership ? JSON.stringify(teamMembership, null, 2) : 'No memberships'}
-                </div>
-                <div className="mb-2">
-                  <strong>Server Auth Debug:</strong> {debugResponse ? JSON.stringify(debugResponse, null, 2) : 'Not checked yet'}
-                </div>
-                <div className="mb-2">
-                  <strong>Team Data:</strong> {team ? JSON.stringify(team, null, 2) : 'No team data'} 
-                </div>
-                <div className="mb-2">
-                  <strong>Team Error:</strong> {teamError ? String(teamError) : 'None'}
-                </div>
-                <div>
-                  <strong>Request Logs:</strong> <pre>{JSON.stringify(requestLogs, null, 2)}</pre>
-                </div>
-                <div className="mt-4 space-x-2">
-                  <Button onClick={refreshUserData} className="mt-2">Refresh Auth Data</Button>
-                  <Button onClick={testDirectFetch} className="mt-2" disabled={isFetching}>
-                    {isFetching ? 'Testing...' : 'Test API Endpoints'}
-                  </Button>
-                  <Button onClick={() => setShowDebug(false)} className="mt-2">Hide Debug</Button>
-                </div>
-              </div>
-            </div>
-          )}
         </CardContent>
       </Card>
     );
@@ -482,46 +442,6 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
               {isFetching ? 'Testing...' : 'Test Direct Fetch'}
             </Button>
           </div>
-
-          {showDebug && (
-            <div className="mt-6 p-4 bg-gray-100 rounded-md">
-              <h3 className="text-lg font-bold mb-2">Debug Information</h3>
-              <div className="text-xs font-mono overflow-auto">
-                <div className="mb-2">
-                  <strong>Team ID:</strong> {teamId}
-                </div>
-                <div className="mb-2">
-                  <strong>Error Details:</strong> {String(teamError)}
-                </div>
-                <div className="mb-2">
-                  <strong>Current User:</strong> {user ? JSON.stringify(user, null, 2) : 'Not logged in'}
-                </div>
-                <div className="mb-2">
-                  <strong>Authentication Status:</strong> {user ? 'Logged in' : 'Not logged in'}
-                </div>
-                
-                {directFetchError && (
-                  <div className="mb-2 text-red-500">
-                    <strong>Direct Fetch Error:</strong> {directFetchError}
-                  </div>
-                )}
-                
-                {directFetchResponse && (
-                  <div className="mb-2">
-                    <strong>Direct Fetch Response:</strong> {JSON.stringify(directFetchResponse, null, 2)}
-                  </div>
-                )}
-                
-                <div className="mt-4 space-x-2">
-                  <Button onClick={refreshUserData} className="mt-2">Refresh Auth Data</Button>
-                  <Button onClick={testDirectFetch} className="mt-2" disabled={isFetching}>
-                    {isFetching ? 'Testing...' : 'Test API Endpoints'}
-                  </Button>
-                  <Button onClick={() => setShowDebug(false)} className="mt-2">Hide Debug</Button>
-                </div>
-              </div>
-            </div>
-          )}
         </CardContent>
       </Card>
     );
@@ -628,15 +548,6 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
             <TeamMemberList teamId={teamId} />
           </div>
         </div>
-
-        {/* Add debug toggle button to the bottom */}
-        {!showDebug && (
-          <div className="mt-6">
-            <Button onClick={() => setShowDebug(true)} variant="outline" size="sm">
-              Show Debug Panel
-            </Button>
-          </div>
-        )}
       </CardContent>
     </Card>
   );

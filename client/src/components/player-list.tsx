@@ -114,9 +114,6 @@ export function PlayerList({ teamId, showEditControls = false }: PlayerListProps
       try {
         setUpdateError(null);
         
-        // Log what we're sending to the server for debugging
-        console.log("Updating player with data:", data);
-        
         // Format the data specifically for the backend
         // Make sure to include all required fields and proper types
         const processedData = {
@@ -126,8 +123,6 @@ export function PlayerList({ teamId, showEditControls = false }: PlayerListProps
           teamId: teamId, // Make sure teamId is included
         };
         
-        console.log("Processed data for update:", processedData);
-        
         // First fetch the current player to see the exact data structure
         const currentResponse = await fetch(`/api/teams/${teamId}/players/${id}`, {
           credentials: "include"
@@ -135,7 +130,6 @@ export function PlayerList({ teamId, showEditControls = false }: PlayerListProps
         
         if (currentResponse.ok) {
           const currentData = await currentResponse.json();
-          console.log("Current player data from server:", currentData);
         }
         
         // Use fetch directly for more control
@@ -154,7 +148,6 @@ export function PlayerList({ teamId, showEditControls = false }: PlayerListProps
         
         // Get response text for debugging regardless of success/failure
         const responseText = await res.text();
-        console.log(`Server response (${res.status}):`, responseText);
         
         if (!res.ok) {
           // If it's HTML (unexpected), provide a clear error

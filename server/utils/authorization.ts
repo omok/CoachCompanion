@@ -7,15 +7,14 @@
 import { Request, Response, NextFunction } from 'express';
 import { 
   userTypeHasPermission, 
-  teamRoleHasPermission, 
-  UserType, 
-  TeamRole,
-  UserTypePermissions,
-  TeamRolePermissions 
+  teamRoleHasPermission,
+  type UserTypePermissions,
+  type TeamRolePermissions 
 } from '@shared/access-control';
 import { db } from '../db';
 import { teams, users, teamMembers } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
+import { USER_ROLES, TEAM_ROLES, type UserRole, type TeamRole } from '@shared/constants';
 
 /**
  * Extended Express session with userId
@@ -75,7 +74,7 @@ export function requireUserTypePermission(permission: keyof UserTypePermissions)
         return res.status(401).json({ error: 'User not found' });
       }
 
-      const userRole = user.role as UserType;
+      const userRole = user.role as UserRole;
       
       if (userTypeHasPermission(userRole, permission)) {
         next();

@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { USER_ROLES } from '@shared/constants';
 
 type LoginFormData = {
   username: string;
@@ -38,7 +39,7 @@ export default function AuthPage() {
   const registerForm = useForm<InsertUser>({
     resolver: zodResolver(insertUserSchema),
     defaultValues: {
-      role: "coach"
+      role: USER_ROLES.COACH
     }
   });
 
@@ -123,15 +124,15 @@ export default function AuthPage() {
                   <div className="space-y-2">
                     <Label htmlFor="role">Role</Label>
                     <Select
-                      defaultValue="coach"
+                      defaultValue={USER_ROLES.COACH}
                       onValueChange={(value) => registerForm.setValue("role", value)}
                     >
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select your role" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="coach">Coach</SelectItem>
-                        <SelectItem value="parent">Parent</SelectItem>
+                        <SelectItem value={USER_ROLES.COACH}>Coach</SelectItem>
+                        <SelectItem value={USER_ROLES.PARENT}>Parent</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

@@ -4,6 +4,7 @@ import { handleValidationError } from "./utils";
 import { IStorage } from "../storage";
 import express from 'express';
 import { requireTeamRolePermission } from '../utils/authorization';
+import { USER_ROLES, TEAM_ROLES } from '@shared/constants';
 
 /**
  * Validate date format - YYYY-MM-DD
@@ -31,7 +32,7 @@ export function createTeamsRouter(storage: IStorage): Router {
    * 
    * Authorization:
    * - User must be authenticated
-   * - User must have the 'coach' role
+   * - User must have the 'Coach' role
    * 
    * @route POST /api/teams
    * @body name - Team name
@@ -47,17 +48,34 @@ export function createTeamsRouter(storage: IStorage): Router {
         });
       }
       
-      if (req.user.role !== "coach") {
+      if (req.user.role !== USER_ROLES.COACH) {
         return res.status(403).json({
           error: 'Permission Denied',
           message: 'Only coaches can create teams'
         });
       }
       
+      console.log(`[Teams] Creating new team for user ${req.user.id}`, req.body);
+      
       const parsed = insertTeamSchema.parse({ ...req.body, coachId: req.user.id });
+      console.log(`[Teams] Parsed team data:`, parsed);
+      
       const team = await storage.createTeam(parsed, { currentUserId: req.user.id });
+      console.log(`[Teams] Team created with ID ${team.id}`);
+
+      // Create team member entry for the creator as owner
+      console.log(`[Teams] Creating team member entry for user ${req.user.id} as Owner`);
+      const teamMember = await storage.createTeamMember({
+        teamId: team.id,
+        userId: req.user.id,
+        role: TEAM_ROLES.OWNER,
+        isOwner: true
+      }, { currentUserId: req.user.id });
+      console.log(`[Teams] Team member entry created with ID ${teamMember.id}`);
+
       res.status(201).json(team);
     } catch (err) {
+      console.error('[Teams] Error creating team:', err);
       handleValidationError(err, res);
     }
   });
@@ -88,11 +106,11 @@ export function createTeamsRouter(storage: IStorage): Router {
       }
       
       // Different behavior based on user role
-      if (req.user.role === "coach") {
+      if (req.user.role === USER_ROLES.COACH) {
         // Coaches see teams they coach
         const teams = await storage.getTeamsByCoachId(req.user.id);
         res.json(teams);
-      } else if (req.user.role === "parent") {
+      } else if (req.user.role === USER_ROLES.PARENT) {
         // Parents see teams their children are on
         const teams = await storage.getTeamsByParentId(req.user.id);
         res.json(teams);

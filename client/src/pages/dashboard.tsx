@@ -19,6 +19,7 @@ import {
   Settings,
 } from "lucide-react";
 import { CreateTeamDialog } from "@/components/create-team-dialog";
+import { USER_ROLES } from '@shared/constants';
 
 export default function Dashboard() {
   const { user, logoutMutation } = useAuth();
@@ -58,7 +59,7 @@ export default function Dashboard() {
                   {team.name}
                 </Button>
               ))}
-              {user?.role === "coach" && <CreateTeamDialog />}
+              {user?.role === USER_ROLES.COACH && <CreateTeamDialog />}
             </div>
           )}
         </div>
@@ -83,7 +84,7 @@ export default function Dashboard() {
                 <CalendarCheck className="h-4 w-4 mr-2" />
                 Attendance
               </Button>
-              {user?.role === "coach" && (
+              {user?.role === USER_ROLES.COACH && (
                 <Button
                   variant={activeTab === "notes" ? "secondary" : "ghost"}
                   className="w-full justify-start"
@@ -93,7 +94,7 @@ export default function Dashboard() {
                   Practice Notes
                 </Button>
               )}
-              {user?.role === "coach" && (
+              {user?.role === USER_ROLES.COACH && (
                 <Button
                   variant={activeTab === "payments" ? "secondary" : "ghost"}
                   className="w-full justify-start"
@@ -103,7 +104,7 @@ export default function Dashboard() {
                   Payments
                 </Button>
               )}
-              {user?.role === "coach" && (
+              {user?.role === USER_ROLES.COACH && (
                 <Button
                   variant={activeTab === "settings" ? "secondary" : "ghost"}
                   className="w-full justify-start"
@@ -141,11 +142,11 @@ export default function Dashboard() {
             <h1 className="text-2xl font-bold mb-6">{selectedTeam?.name}</h1>
             {activeTab === "roster" && <TeamRoster teamId={selectedTeamId} />}
             {activeTab === "attendance" && <AttendanceTracker teamId={selectedTeamId} />}
-            {activeTab === "notes" && user?.role === "coach" && <PracticeNotes teamId={selectedTeamId} />}
-            {activeTab === "payments" && user?.role === "coach" && (
+            {activeTab === "notes" && user?.role === USER_ROLES.COACH && <PracticeNotes teamId={selectedTeamId} />}
+            {activeTab === "payments" && user?.role === USER_ROLES.COACH && (
               <PaymentTracker teamId={selectedTeamId} />
             )}
-            {activeTab === "settings" && user?.role === "coach" && (
+            {activeTab === "settings" && user?.role === USER_ROLES.COACH && (
               <TeamSettings teamId={selectedTeamId} />
             )}
           </>

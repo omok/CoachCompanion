@@ -29,6 +29,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import * as z from "zod";
+import { USER_ROLES } from '@shared/constants';
 
 // Schema for updating a player - only including fields we want to update
 const updatePlayerSchema = z.object({
@@ -248,7 +249,7 @@ export function PlayerList({ teamId, showEditControls = false }: PlayerListProps
       <Card>
         <CardContent className="pt-6">
           <p className="text-center text-muted-foreground">No players in this team yet.</p>
-          {showEditControls && user?.role === "coach" && (
+          {showEditControls && user?.role === USER_ROLES.COACH && (
             <div className="flex justify-center mt-4">
               <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                 <DialogTrigger asChild>
@@ -316,7 +317,7 @@ export function PlayerList({ teamId, showEditControls = false }: PlayerListProps
 
   return (
     <div>
-      {showEditControls && user?.role === "coach" && (
+      {showEditControls && user?.role === USER_ROLES.COACH && (
         <div className="flex justify-end mb-4">
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>

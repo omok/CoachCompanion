@@ -8,15 +8,7 @@
  * All application components using these permissions will automatically reflect the changes.
  */
 
-/**
- * User Types in the system
- */
-export type UserType = 'Coach' | 'Parent';
-
-/**
- * Roles a user can have within a team
- */
-export type TeamRole = 'Owner' | 'AssistantCoach' | 'TeamManager' | 'Parent';
+import { USER_ROLES, TEAM_ROLES, type UserRole, type TeamRole } from './constants';
 
 /**
  * Permissions available to different user types
@@ -64,12 +56,12 @@ export interface TeamRolePermissions {
  * | canBeInvitedAsAssistantCoach |   ✓   |   ✗            |
  * ---------------------------------------------------------
  */
-export const userTypePermissions: Record<UserType, UserTypePermissions> = {
-  Coach: {
+export const userTypePermissions: Record<UserRole, UserTypePermissions> = {
+  [USER_ROLES.COACH]: {
     createNewTeam: true,
     canBeInvitedAsAssistantCoach: true,
   },
-  Parent: {
+  [USER_ROLES.PARENT]: {
     createNewTeam: false,
     canBeInvitedAsAssistantCoach: false,
   },
@@ -95,7 +87,7 @@ export const userTypePermissions: Record<UserType, UserTypePermissions> = {
  * ------------------------------------------------------------------------------------
  */
 export const teamRolePermissions: Record<TeamRole, TeamRolePermissions> = {
-  Owner: {
+  [TEAM_ROLES.OWNER]: {
     seeTeamRoster: true,
     addPlayer: true,
     takeAttendance: true,
@@ -106,7 +98,7 @@ export const teamRolePermissions: Record<TeamRole, TeamRolePermissions> = {
     deleteTeam: true,
     manageTeamSettings: true,
   },
-  AssistantCoach: {
+  [TEAM_ROLES.ASSISTANT_COACH]: {
     seeTeamRoster: true,
     addPlayer: true,
     takeAttendance: true,
@@ -117,7 +109,7 @@ export const teamRolePermissions: Record<TeamRole, TeamRolePermissions> = {
     deleteTeam: false,
     manageTeamSettings: false,
   },
-  TeamManager: {
+  [TEAM_ROLES.TEAM_MANAGER]: {
     seeTeamRoster: true,
     addPlayer: true,
     takeAttendance: true,
@@ -128,7 +120,7 @@ export const teamRolePermissions: Record<TeamRole, TeamRolePermissions> = {
     deleteTeam: false,
     manageTeamSettings: true,
   },
-  Parent: {
+  [TEAM_ROLES.PARENT]: {
     seeTeamRoster: true,
     addPlayer: false,
     takeAttendance: false,
@@ -148,7 +140,7 @@ export const teamRolePermissions: Record<TeamRole, TeamRolePermissions> = {
  * @param permission The permission to check
  * @returns Whether the user type has the requested permission
  */
-export function userTypeHasPermission(userType: UserType, permission: keyof UserTypePermissions): boolean {
+export function userTypeHasPermission(userType: UserRole, permission: keyof UserTypePermissions): boolean {
   return userTypePermissions[userType][permission];
 }
 

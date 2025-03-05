@@ -9,6 +9,7 @@
 
 import { pgTable, varchar, serial, integer, boolean, timestamp, json, numeric, date } from "drizzle-orm/pg-core";
 import { z } from "zod";
+import { USER_ROLES, TEAM_ROLES, type UserRole, type TeamRole } from './constants';
 
 // Add session table definition to prevent Drizzle from trying to drop it
 export const session = pgTable("session", {
@@ -24,7 +25,7 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: varchar("username").notNull().unique(),
   password: varchar("password").notNull(),
-  role: varchar("role").notNull(), 
+  role: varchar("role").notNull(), // Coach or Parent
   name: varchar("name").notNull(),
   lastUpdatedByUser: integer("lastUpdatedByUser").notNull(),
 });
@@ -45,7 +46,7 @@ export const teamMembers = pgTable("team_members", {
   id: serial("id").primaryKey(),
   teamId: integer("team_id").notNull(),
   userId: integer("user_id").notNull(),
-  role: varchar("role").notNull(), // 'AssistantCoach', 'TeamManager', 'Parent'
+  role: varchar("role").notNull(), // Owner, AssistantCoach, TeamManager, Parent
   isOwner: boolean("is_owner").notNull().default(false),
   lastUpdatedByUser: integer("lastUpdatedByUser").notNull(),
 });
@@ -105,7 +106,7 @@ export const insertUserSchema = z.object({
   id: z.number().optional(),
   username: z.string(),
   password: z.string(),
-  role: z.string(),
+  role: z.enum([USER_ROLES.COACH, USER_ROLES.PARENT]),
   name: z.string(),
 });
 
@@ -125,7 +126,7 @@ export const insertTeamSchema = z.object({
 export const insertTeamMemberSchema = z.object({
   teamId: z.number(),
   userId: z.number(),
-  role: z.string(),
+  role: z.enum([TEAM_ROLES.OWNER, TEAM_ROLES.ASSISTANT_COACH, TEAM_ROLES.TEAM_MANAGER, TEAM_ROLES.PARENT]),
   isOwner: z.boolean().optional().default(false),
 });
 

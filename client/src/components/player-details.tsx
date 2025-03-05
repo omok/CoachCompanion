@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { AttendanceStats } from "@/components/attendance-stats";
 import { format, parseISO } from "date-fns";
+import { USER_ROLES } from '@shared/constants';
 
 interface PlayerDetailsProps {
   teamId: number;
@@ -79,7 +80,7 @@ export function PlayerDetails({
   // Set default tab based on user role
   useEffect(() => {
     // If the user is not a coach and the active tab is "notes", switch to "details"
-    if (user?.role !== "coach" && activeTab === "notes") {
+    if (user?.role !== USER_ROLES.COACH && activeTab === "notes") {
       setActiveTab("details");
     }
   }, [user?.role, activeTab]);
@@ -99,13 +100,13 @@ export function PlayerDetails({
   // Fetch practice notes
   const { data: practiceNotes, isLoading: isLoadingNotes } = useQuery<PracticeNote[]>({
     queryKey: [`/api/teams/${teamId}/practice-notes/player/${playerId}`],
-    enabled: !!teamId && !!playerId && user?.role === "coach",
+    enabled: !!teamId && !!playerId && user?.role === USER_ROLES.COACH,
   });
 
   // Fetch payments
   const { data: payments, isLoading: isLoadingPayments, refetch: refetchPayments } = useQuery<Payment[]>({
     queryKey: [`/api/teams/${teamId}/payments/player/${playerId}`],
-    enabled: !!teamId && !!playerId && user?.role === "coach",
+    enabled: !!teamId && !!playerId && user?.role === USER_ROLES.COACH,
   });
 
   // Calculate payment total
@@ -113,17 +114,17 @@ export function PlayerDetails({
 
   // Ensure we always have latest payment data when component mounts
   useEffect(() => {
-    if (teamId && playerId && user?.role === "coach") {
+    if (teamId && playerId && user?.role === USER_ROLES.COACH) {
       // Refetch payment data when component mounts
       refetchPayments();
     }
   }, [teamId, playerId, user?.role, refetchPayments]);
 
   // Check if the current user is a parent of this player
-  const isParentOfPlayer = user?.role === "parent" && player?.parentId === user?.id;
+  const isParentOfPlayer = user?.role === USER_ROLES.PARENT && player?.parentId === user?.id;
   
   // Check if user can view this player's details (coach or parent of the player)
-  const canViewPlayerDetails = user?.role === "coach" || isParentOfPlayer;
+  const canViewPlayerDetails = user?.role === USER_ROLES.COACH || isParentOfPlayer;
 
   if (isLoadingPlayer) {
     return (
@@ -148,7 +149,7 @@ export function PlayerDetails({
   }
 
   // If user is a parent but not the parent of this player, show access denied
-  if (user?.role === "parent" && !isParentOfPlayer) {
+  if (user?.role === USER_ROLES.PARENT && !isParentOfPlayer) {
     return (
       <div className="flex flex-col items-center justify-center py-8">
         <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
@@ -200,13 +201,13 @@ export function PlayerDetails({
             <Calendar className="h-4 w-4 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
             <span className="inline">Attendance</span>
           </TabsTrigger>
-          {user?.role === "coach" && (
+          {user?.role === USER_ROLES.COACH && (
             <TabsTrigger value="notes" className="text-xs sm:text-sm px-1 sm:px-3 py-2 sm:py-2 h-auto flex items-center justify-center">
               <BookOpen className="h-4 w-4 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
               <span className="inline">Notes</span>
             </TabsTrigger>
           )}
-          {user?.role === "coach" && (
+          {user?.role === USER_ROLES.COACH && (
             <TabsTrigger value="payments" className="text-xs sm:text-sm px-1 sm:px-3 py-2 sm:py-2 h-auto flex items-center justify-center">
               <DollarSign className="h-4 w-4 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
               <span className="inline">Payments</span>
@@ -355,7 +356,7 @@ export function PlayerDetails({
         </TabsContent>
 
         {/* Practice Notes Tab */}
-        {user?.role === "coach" && (
+        {user?.role === USER_ROLES.COACH && (
           <TabsContent value="notes">
             <Card>
               <CardHeader className="pb-2 sm:pb-4">
@@ -388,7 +389,7 @@ export function PlayerDetails({
         )}
 
         {/* Payments Tab (Coach Only) */}
-        {user?.role === "coach" && (
+        {user?.role === USER_ROLES.COACH && (
           <TabsContent value="payments">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
               <Card>

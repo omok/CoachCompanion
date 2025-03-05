@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { format, parseISO } from "date-fns";
+import { USER_ROLES } from '@shared/constants';
 
 // Define a logger function to help with debugging
 const logEvent = (component: string, action: string, data?: any) => {
@@ -24,7 +25,7 @@ export function AttendanceTracker({ teamId }: { teamId: number }) {
   const [attendanceState, setAttendanceState] = useState<Record<number, boolean>>({});
   // Track which players are currently being updated to prevent double-toggles
   const [updatingPlayers, setUpdatingPlayers] = useState<Set<number>>(new Set());
-  const isCoach = user?.role === "coach";
+  const isCoach = user?.role === USER_ROLES.COACH;
 
   // Keep track of previous attendance state for logging changes
   const prevAttendanceStateRef = useRef<Record<number, boolean>>({});

@@ -1,9 +1,12 @@
-import express from 'express';
+import express, { Router } from 'express';
 import { z } from 'zod';
 import { IStorage } from '../storage';
 import { requireTeamRolePermission } from '../utils/authorization';
 import { insertTeamMemberSchema } from '@shared/schema';
 import { Logger } from '../logger';
+import { TEAM_ROLE_PERMISSIONS } from "@shared/access-control";
+import { TEAM_ROLES } from "@shared/constants";
+import { TEAM_PERMISSION_KEYS } from '@shared/access-control';
 
 /**
  * Creates a router for team members endpoints
@@ -12,7 +15,7 @@ import { Logger } from '../logger';
  * @returns Express router
  */
 export function createTeamMembersRouter(storage: IStorage) {
-  const router = express.Router({ mergeParams: true });
+  const router = Router();
 
   /**
    * GET /api/user/teams
@@ -46,11 +49,12 @@ export function createTeamMembersRouter(storage: IStorage) {
    * GET /api/teams/:teamId/members
    * 
    * Get all members of a team
-   * Requires 'seeTeamRoster' permission
+   * Requires SEE_TEAM_ROSTER permission
    */
-  router.get('/api/teams/:teamId/members', requireTeamRolePermission('seeTeamRoster'), async (req, res) => {
+  router.get('/api/teams/:teamId/members', requireTeamRolePermission(TEAM_PERMISSION_KEYS.SEE_TEAM_ROSTER), async (req, res) => {
     try {
       const teamId = parseInt(req.params.teamId);
+      
       if (isNaN(teamId)) {
         return res.status(400).json({ error: 'Invalid team ID' });
       }
@@ -58,8 +62,8 @@ export function createTeamMembersRouter(storage: IStorage) {
       const members = await storage.getTeamMembers(teamId);
       res.json(members);
     } catch (error) {
-      Logger.error('Error fetching team members', { error });
-      res.status(500).json({ error: 'Failed to fetch team members' });
+      Logger.error('Error getting team members', { error });
+      res.status(500).json({ error: 'Failed to get team members' });
     }
   });
 
@@ -67,22 +71,25 @@ export function createTeamMembersRouter(storage: IStorage) {
    * POST /api/teams/:teamId/members
    * 
    * Add a new member to a team
-   * Requires 'inviteTeamMembers' permission
+   * Requires INVITE_TEAM_MEMBERS permission
    */
-  router.post('/api/teams/:teamId/members', requireTeamRolePermission('inviteTeamMembers'), async (req, res) => {
+  router.post('/api/teams/:teamId/members', requireTeamRolePermission(TEAM_PERMISSION_KEYS.INVITE_TEAM_MEMBERS), async (req, res) => {
     try {
       const teamId = parseInt(req.params.teamId);
+      
       if (isNaN(teamId)) {
         return res.status(400).json({ error: 'Invalid team ID' });
       }
 
-      // Validate request body
-      const validatedData = insertTeamMemberSchema.parse({
-        ...req.body,
-        teamId
-      });
+      // Get the current user ID from the session
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
 
-      const newMember = await storage.createTeamMember(validatedData);
+      // Validate and create the new member
+      const validatedData = insertTeamMemberSchema.parse({ ...req.body, teamId });
+      const newMember = await storage.createTeamMember(validatedData, { currentUserId: userId });
       res.status(201).json(newMember);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -97,9 +104,9 @@ export function createTeamMembersRouter(storage: IStorage) {
    * PUT /api/teams/:teamId/members/:memberId
    * 
    * Update a team member's role
-   * Requires 'inviteTeamMembers' permission
+   * Requires MANAGE_TEAM_SETTINGS permission
    */
-  router.put('/api/teams/:teamId/members/:memberId', requireTeamRolePermission('inviteTeamMembers'), async (req, res) => {
+  router.put('/api/teams/:teamId/members/:memberId', requireTeamRolePermission(TEAM_PERMISSION_KEYS.MANAGE_TEAM_SETTINGS), async (req, res) => {
     try {
       const teamId = parseInt(req.params.teamId);
       const memberId = parseInt(req.params.memberId);
@@ -108,9 +115,9 @@ export function createTeamMembersRouter(storage: IStorage) {
         return res.status(400).json({ error: 'Invalid ID parameters' });
       }
 
-      // Validate request body
+      // Validate the request body
       const validatedData = z.object({
-        role: z.string().optional(),
+        role: z.enum([TEAM_ROLES.OWNER, TEAM_ROLES.ASSISTANT_COACH, TEAM_ROLES.TEAM_MANAGER, TEAM_ROLES.PARENT]).optional(),
         isOwner: z.boolean().optional()
       }).parse(req.body);
 
@@ -122,8 +129,14 @@ export function createTeamMembersRouter(storage: IStorage) {
         return res.status(404).json({ error: 'Team member not found' });
       }
 
-      // Update the member
-      const updatedMember = await storage.updateTeamMember(memberId, validatedData);
+      // Get the current user ID from the session
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      // Update the member with the current user context
+      const updatedMember = await storage.updateTeamMember(memberId, validatedData, { currentUserId: userId });
       res.json(updatedMember);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -138,9 +151,9 @@ export function createTeamMembersRouter(storage: IStorage) {
    * DELETE /api/teams/:teamId/members/:memberId
    * 
    * Remove a member from a team
-   * Requires 'removeTeamMembers' permission
+   * Requires REMOVE_TEAM_MEMBERS permission
    */
-  router.delete('/api/teams/:teamId/members/:memberId', requireTeamRolePermission('removeTeamMembers'), async (req, res) => {
+  router.delete('/api/teams/:teamId/members/:memberId', requireTeamRolePermission(TEAM_PERMISSION_KEYS.REMOVE_TEAM_MEMBERS), async (req, res) => {
     try {
       const teamId = parseInt(req.params.teamId);
       const memberId = parseInt(req.params.memberId);

@@ -10,7 +10,8 @@ import {
   teamRoleHasPermission,
   type UserRolePermissions,
   type TeamRolePermissions,
-  TEAM_ROLE_PERMISSIONS
+  TEAM_ROLE_PERMISSIONS,
+  type TeamRolePermissionKey
 } from '@shared/access-control';
 import { db } from '../db';
 import { teams, users, teamMembers } from '@shared/schema';
@@ -52,7 +53,7 @@ function getUserId(req: Request): number | null {
 /**
  * Middleware to check if user has a specific team role permission
  */
-export function requireTeamRolePermission(permission: keyof typeof TEAM_ROLE_PERMISSIONS) {
+export function requireTeamRolePermission(permission: TeamRolePermissionKey) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = getUserId(req);

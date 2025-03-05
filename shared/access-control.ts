@@ -20,8 +20,8 @@ export const USER_ROLE_PERMISSIONS = {
 } as const;
 
 /**
- * Constants for team role permissions
- * Use these instead of string literals to prevent typos
+ * Constants for team role permission values
+ * These are the actual values stored in the database
  */
 export const TEAM_ROLE_PERMISSIONS = {
   SEE_TEAM_ROSTER: 'seeTeamRoster',
@@ -34,6 +34,28 @@ export const TEAM_ROLE_PERMISSIONS = {
   DELETE_TEAM: 'deleteTeam',
   MANAGE_TEAM_SETTINGS: 'manageTeamSettings',
 } as const;
+
+/**
+ * Constants for team role permission keys
+ * Use these in middleware calls to prevent typos
+ */
+export const TEAM_PERMISSION_KEYS = {
+  SEE_TEAM_ROSTER: 'SEE_TEAM_ROSTER',
+  ADD_PLAYER: 'ADD_PLAYER',
+  TAKE_ATTENDANCE: 'TAKE_ATTENDANCE',
+  ADD_PRACTICE_NOTE: 'ADD_PRACTICE_NOTE',
+  MANAGE_PAYMENTS: 'MANAGE_PAYMENTS',
+  INVITE_TEAM_MEMBERS: 'INVITE_TEAM_MEMBERS',
+  REMOVE_TEAM_MEMBERS: 'REMOVE_TEAM_MEMBERS',
+  DELETE_TEAM: 'DELETE_TEAM',
+  MANAGE_TEAM_SETTINGS: 'MANAGE_TEAM_SETTINGS',
+} as const;
+
+/**
+ * Type for team role permission keys
+ * Use this type for middleware that expects permission keys
+ */
+export type TeamRolePermissionKey = keyof typeof TEAM_ROLE_PERMISSIONS;
 
 /**
  * Permissions available to different user roles

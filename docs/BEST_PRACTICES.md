@@ -13,6 +13,8 @@ This document summarizes the best practices observed in the CoachCompanion codeb
    - Leveraging TypeScript for both frontend and backend ensures type safety
    - Shared schema types prevent inconsistencies between client and server
    - Types are exported cleanly at the bottom of schema files
+   - The `any` type is never used - it defeats the purpose of TypeScript's type safety
+   - When dealing with unknown data structures, use `unknown` type with proper type narrowing
 
 3. **Modular API Design**
    - API endpoints are grouped by resource and organized in separate files

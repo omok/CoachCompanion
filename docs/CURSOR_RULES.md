@@ -20,7 +20,10 @@ This document contains the coding standards and patterns to follow when working 
 
 1. **Use strict typing**: Always define proper interfaces and types for all variables and function parameters.
 2. **Leverage shared types**: Use the shared schema types from `shared/schema.ts` whenever working with database entities.
-3. **No `any` type**: Avoid using the `any` type. Use proper type unions or generics instead.
+3. **No `any` type**: The `any` type is strictly prohibited. Use proper type unions, generics, or the `unknown` type with type guards instead.
+   - Instead of `any`, use `unknown` with type checking: `function process(data: unknown): string { if (typeof data === 'string') return data; throw new Error('Expected string'); }`
+   - For API responses, define proper interfaces reflecting the expected response structure
+   - For complex objects with varying structures, use discriminated unions or generics
 4. **Type exports**: Maintain type exports at the bottom of schema files for consistency.
 
 ## Frontend Patterns

@@ -15,8 +15,10 @@ Use this checklist when reviewing code for the CoachCompanion application.
 - [ ] Are all variables and functions properly typed?
 - [ ] Are shared schema types used for database entities?
 - [ ] Are there any unnecessary type assertions or `any` types?
+- [ ] Is the codebase free from `any` types? If not, has each usage been justified with a detailed comment explaining why alternatives can't be used?
 - [ ] Are the return types of async functions correct (e.g., `Promise<Entity | undefined>`)?
 - [ ] Are optional properties handled safely with null checks or defaults?
+- [ ] Are unknown data structures properly narrowed using type guards before use?
 
 ## Frontend
 

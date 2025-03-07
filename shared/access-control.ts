@@ -130,7 +130,7 @@ export const userRolePermissions: Record<UserRole, UserRolePermissions> = {
  * | inviteTeamMembers |   ✓   |       ✗        |      ✗      |   ✗                  |
  * | removeTeamMembers |   ✓   |       ✗        |      ✗      |   ✗                  |
  * | deleteTeam        |   ✓   |       ✗        |      ✗      |   ✗                  |
- * | manageTeamSettings|   ✓   |       ✗        |      ✓      |   ✗                  |
+ * | manageTeamSettings|   ✓   |       ✗        |      ✗      |   ✗                  |
  * ------------------------------------------------------------------------------------
  */
 export const teamRolePermissions: Record<TeamRole, TeamRolePermissions> = {
@@ -165,7 +165,7 @@ export const teamRolePermissions: Record<TeamRole, TeamRolePermissions> = {
     inviteTeamMembers: false,
     removeTeamMembers: false,
     deleteTeam: false,
-    manageTeamSettings: true,
+    manageTeamSettings: false,
   },
   [TEAM_ROLES.PARENT]: {
     seeTeamRoster: true,

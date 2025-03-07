@@ -96,6 +96,7 @@ For the current permission configuration, refer to the comments in `shared/acces
 | inviteTeamMembers |   ✓   |       ✗        |      ✗      |   ✗    |
 | removeTeamMembers |   ✓   |       ✗        |      ✗      |   ✗    |
 | deleteTeam        |   ✓   |       ✗        |      ✗      |   ✗    |
+| manageTeamSettings|   ✓   |       ✗        |      ✗      |   ✗    |
 ```
 
 ## Updating Permissions
@@ -124,4 +125,4 @@ export const teamRolePermissions: Record<TeamRole, TeamRolePermissions> = {
 2. **No Redundancy**: No need to update multiple files when permissions change
 3. **Type Safety**: TypeScript ensures correct permission names and prevents errors
 4. **Easy Maintenance**: Changing permissions requires editing one file only
-5. **Self-Documenting Code**: The TypeScript file itself contains readable permission tables 
+5. **Self-Documenting Code**: The TypeScript file itself contains readable permission tables

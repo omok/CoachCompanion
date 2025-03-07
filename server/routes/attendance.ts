@@ -1,7 +1,9 @@
-import { Router, Request } from "express";
+import { Router, Request, Response } from "express";
 import { handleValidationError } from "./utils";
 import { IStorage } from "../storage";
 import { Logger } from "../logger";
+import { requireTeamRolePermission } from '../utils/authorization';
+import { TEAM_PERMISSION_KEYS } from '@shared/access-control';
 
 // Define interface for request params
 interface TeamParams {
@@ -30,12 +32,12 @@ export function createAttendanceRouter(storage: IStorage): Router {
   /**
    * Record attendance for a team
    * 
-   * This endpoint allows coaches to record attendance for a practice session.
-   * It supports bulk creation of attendance records for multiple players.
+   * This endpoint allows users with the TAKE_ATTENDANCE permission to record
+   * attendance for a practice session. It supports bulk creation of attendance
+   * records for multiple players.
    * 
    * Authorization:
-   * - User must be authenticated
-   * - User must be the coach of the team
+   * - User must have TAKE_ATTENDANCE permission for the team
    * 
    * @route POST /api/teams/:teamId/attendance
    * @param teamId - The team ID to record attendance for
@@ -43,7 +45,7 @@ export function createAttendanceRouter(storage: IStorage): Router {
    * @body records - Array of attendance records (playerId, present)
    * @returns The created attendance records
    */
-  router.post("/", async (req: Request<TeamParams>, res) => {
+  router.post("/", requireTeamRolePermission(TEAM_PERMISSION_KEYS.TAKE_ATTENDANCE), async (req: Request<TeamParams>, res: Response) => {
     try {
       Logger.info(`[API] POST /api/teams/${req.params.teamId}/attendance request received`, {
         userId: req.user?.id,
@@ -51,14 +53,14 @@ export function createAttendanceRouter(storage: IStorage): Router {
         bodySize: JSON.stringify(req.body).length
       });
 
-      if (!req.isAuthenticated() || req.user.role !== "coach") {
+      if (!req.user) {
         Logger.warn(`[API] Unauthorized access attempt to record attendance`, {
           path: req.originalUrl,
           ip: req.ip
         });
         return res.status(401).json({
-          error: 'Unauthorized',
-          message: 'You must be logged in as a coach to record attendance'
+          error: 'Authentication Required',
+          message: 'You must be logged in to record attendance'
         });
       }
       
@@ -78,17 +80,6 @@ export function createAttendanceRouter(storage: IStorage): Router {
         });
       }
       
-      if (team.coachId !== req.user.id) {
-        Logger.warn(`[API] Non-coach trying to record attendance`, {
-          userId: req.user.id,
-          userRole: req.user.role
-        });
-        return res.status(403).json({
-          error: 'Forbidden',
-          message: 'You must be a coach to record attendance'
-        });
-      }
-
       // Validate the date
       if (!req.body.date) {
         return res.status(400).json({

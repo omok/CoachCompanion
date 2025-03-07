@@ -1,7 +1,10 @@
-import { Router, Request } from "express";
+import { Router, Request, Response } from "express";
 import { insertPracticeNoteSchema } from "@shared/schema";
 import { handleValidationError } from "./utils";
 import { IStorage } from "../storage";
+import { Logger } from "../logger";
+import { requireTeamRolePermission } from '../utils/authorization';
+import { TEAM_PERMISSION_KEYS } from '@shared/access-control';
 
 // Define interface for request params
 interface TeamParams {
@@ -30,27 +33,22 @@ export function createPracticeNotesRouter(storage: IStorage): Router {
   /**
    * Create practice notes for a team
    * 
-   * This endpoint allows coaches to record notes for a practice session,
-   * including general notes and specific player observations.
+   * This endpoint allows users with the ADD_PRACTICE_NOTE permission to record notes
+   * for a practice session, including general notes and specific player observations.
    * 
    * Authorization:
-   * - User must be authenticated
-   * - User must have the 'coach' role
-   * - User must be the coach of the team
+   * - User must have ADD_PRACTICE_NOTE permission for the team
    * 
    * @route POST /api/teams/:teamId/practice-notes
-   * @param teamId - The team ID to add practice notes for
-   * @body practiceDate - The date of the practice
-   * @body notes - General notes about the practice
-   * @body playerIds - Array of player IDs that participated
+   * @param teamId - The team ID to create notes for
    * @returns The created practice note with ID assigned
    */
-  router.post("/", async (req: Request<TeamParams>, res) => {
+  router.post("/", requireTeamRolePermission(TEAM_PERMISSION_KEYS.ADD_PRACTICE_NOTE), async (req: Request, res: Response) => {
     try {
-      if (!req.isAuthenticated() || req.user.role !== "coach") {
+      if (!req.user) {
         return res.status(401).json({
           error: 'Authentication Required',
-          message: 'You must be logged in as a coach to add practice notes'
+          message: 'You must be logged in to create practice notes'
         });
       }
       
@@ -62,6 +60,7 @@ export function createPracticeNotesRouter(storage: IStorage): Router {
         });
       }
       
+      // Team existence check
       const team = await storage.getTeam(teamId);
       if (!team) {
         return res.status(404).json({
@@ -70,19 +69,14 @@ export function createPracticeNotesRouter(storage: IStorage): Router {
         });
       }
       
-      if (team.coachId !== req.user.id) {
-        return res.status(403).json({
-          error: 'Permission Denied',
-          message: 'You do not have permission to add practice notes for this team'
-        });
-      }
-      
+      // Parse and validate the data
       const parsed = insertPracticeNoteSchema.parse({
         ...req.body,
         teamId,
         coachId: req.user.id,
       });
       
+      // Create the practice note
       const practiceNote = await storage.createPracticeNote(parsed, { currentUserId: req.user.id });
       res.status(201).json(practiceNote);
     } catch (err) {
@@ -98,9 +92,7 @@ export function createPracticeNotesRouter(storage: IStorage): Router {
    * sessions and observations.
    * 
    * Authorization:
-   * - User must be authenticated
-   * - For coaches: must be the coach of the team
-   * - For parents: must have a child on the team
+   * - User must have SEE_TEAM_ROSTER permission for the team
    * 
    * @route GET /api/teams/:teamId/practice-notes
    * @param teamId - The team ID to get practice notes for
@@ -108,12 +100,12 @@ export function createPracticeNotesRouter(storage: IStorage): Router {
    * @query endDate - Optional end date for filtering (inclusive)
    * @returns Array of practice notes for the specified team and date range
    */
-  router.get("/", async (req: Request<TeamParams, any, any, DateRangeQuery>, res) => {
+  router.get("/", requireTeamRolePermission(TEAM_PERMISSION_KEYS.SEE_TEAM_ROSTER), async (req: Request<TeamParams, any, any, DateRangeQuery>, res) => {
     try {
-      if (!req.isAuthenticated()) {
+      if (!req.user) {
         return res.status(401).json({
           error: 'Authentication Required',
-          message: 'You must be logged in to perform this action'
+          message: 'You must be logged in to view practice notes'
         });
       }
       
@@ -122,22 +114,6 @@ export function createPracticeNotesRouter(storage: IStorage): Router {
         return res.status(400).json({
           error: 'Invalid Request',
           message: 'Team ID must be a valid number'
-        });
-      }
-      
-      const team = await storage.getTeam(teamId);
-      if (!team) {
-        return res.status(404).json({
-          error: 'Not Found',
-          message: `Team with ID ${teamId} not found`
-        });
-      }
-      
-      // Authorization check for coaches
-      if (req.user.role === "coach" && team.coachId !== req.user.id) {
-        return res.status(403).json({
-          error: 'Permission Denied',
-          message: 'You do not have permission to view practice notes for this team'
         });
       }
       
@@ -184,21 +160,19 @@ export function createPracticeNotesRouter(storage: IStorage): Router {
    * the specified player.
    * 
    * Authorization:
-   * - User must be authenticated
-   * - User must have the 'coach' role
-   * - User must be the coach of the team
+   * - User must have ADD_PRACTICE_NOTE permission for the team
    * 
    * @route GET /api/teams/:teamId/practice-notes/player/:playerId
    * @param teamId - The team ID the player belongs to
    * @param playerId - The player ID to get practice notes for
    * @returns Array of practice notes that include the specified player
    */
-  router.get("/player/:playerId", async (req: Request<PlayerParams>, res) => {
+  router.get("/player/:playerId", requireTeamRolePermission(TEAM_PERMISSION_KEYS.ADD_PRACTICE_NOTE), async (req: Request<PlayerParams>, res) => {
     try {
-      if (!req.isAuthenticated() || req.user.role !== "coach") {
+      if (!req.user) {
         return res.status(401).json({
           error: 'Authentication Required',
-          message: 'You must be logged in as a coach to view player practice notes'
+          message: 'You must be logged in to view player practice notes'
         });
       }
       
@@ -209,21 +183,6 @@ export function createPracticeNotesRouter(storage: IStorage): Router {
         return res.status(400).json({
           error: 'Invalid Request',
           message: 'Team ID and Player ID must be valid numbers'
-        });
-      }
-      
-      const team = await storage.getTeam(teamId);
-      if (!team) {
-        return res.status(404).json({
-          error: 'Not Found',
-          message: `Team with ID ${teamId} not found`
-        });
-      }
-      
-      if (team.coachId !== req.user.id) {
-        return res.status(403).json({
-          error: 'Permission Denied',
-          message: 'You do not have permission to view practice notes for this team'
         });
       }
       

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { TeamRoster } from "@/components/team-roster";
@@ -23,7 +23,7 @@ import { USER_ROLES, type UserRole } from '@shared/constants';
 import { userRoleHasPermission, USER_ROLE_PERMISSIONS } from '@shared/access-control';
 import { usePermissions } from "@/hooks/usePermissions";
 import { useTeamMember, type TeamMembership } from "@/hooks/useTeamMember";
-import { useMemo } from "react";
+import { UserProfileDialog } from "@/components/user-profile-dialog";
 
 export default function Dashboard() {
   const { user, logoutMutation } = useAuth();
@@ -72,9 +72,12 @@ export default function Dashboard() {
     <div className="min-h-screen bg-background flex flex-col md:flex-row">
       {/* Sidebar */}
       <div className="w-full md:w-64 bg-card border-r">
-        <div className="p-4 border-b">
-          <h1 className="text-lg font-semibold">{user?.name}</h1>
-          <p className="text-sm text-muted-foreground capitalize">{user?.role}</p>
+        <div className="p-4 border-b flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-semibold">{user?.name}</h1>
+            <p className="text-sm text-muted-foreground capitalize">{user?.role}</p>
+          </div>
+          {user && <UserProfileDialog user={user} />}
         </div>
 
         {/* Team Selection */}

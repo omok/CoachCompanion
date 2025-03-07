@@ -9,6 +9,7 @@ import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { pool } from "./db";
 import { Logger } from "./logger";
+import { hashPassword } from "./auth";
 
 const PostgresStore = connectPgSimple(session);
 
@@ -110,6 +111,16 @@ export interface IStorage {
   getTeamMembersByUserId(userId: number): Promise<(TeamMember & { teamName?: string })[]>;
   updateTeamMember(id: number, updates: Partial<InsertTeamMember>, context: StorageContext): Promise<TeamMember>;
   deleteTeamMember(id: number): Promise<void>;
+
+  // New methods
+  getUserById(id: number): Promise<User | undefined>;
+  updateUser(user: {
+    id: number;
+    name?: string;
+    username?: string;
+    password?: string;
+    role?: string;
+  }, context: StorageContext): Promise<User>;
 }
 
 /**
@@ -941,6 +952,68 @@ export class Storage implements IStorage {
       await db.delete(teamMembers).where(eq(teamMembers.id, id));
     } catch (error) {
       Logger.error("Error deleting team member", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get a user by ID
+   * 
+   * @param id - The user ID
+   * @returns User object or undefined if not found
+   */
+  async getUserById(id: number): Promise<User | undefined> {
+    try {
+      const result = await db.select().from(users).where(eq(users.id, id));
+      return result[0];
+    } catch (error) {
+      Logger.error("Error in getUserById", error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Update a user's profile
+   * 
+   * @param userData - The user data to update
+   * @param context - The context for the operation
+   * @returns Updated user object
+   */
+  async updateUser(userData: {
+    id: number;
+    name?: string;
+    username?: string;
+    password?: string;
+    role?: string;
+  }, context: StorageContext): Promise<User> {
+    try {
+      const { id, ...updateData } = userData;
+      
+      // If password is being updated, hash it
+      if (updateData.password) {
+        const passwordHash = await hashPassword(updateData.password);
+        updateData.password = passwordHash;
+      }
+      
+      // Always set the lastUpdatedByUser field
+      const updateWithMeta = {
+        ...updateData,
+        lastUpdatedByUser: context.currentUserId,
+      };
+      
+      const result = await db
+        .update(users)
+        .set(updateWithMeta)
+        .where(eq(users.id, id))
+        .returning();
+      
+      if (!result[0]) {
+        throw new Error(`User with id ${id} not found`);
+      }
+      
+      return result[0];
+    } catch (error) {
+      Logger.error("Error in updateUser", error);
       throw error;
     }
   }

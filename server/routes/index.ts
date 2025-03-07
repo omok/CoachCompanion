@@ -8,6 +8,7 @@ import { createAttendanceRouter } from "./attendance";
 import { createPracticeNotesRouter } from "./practice-notes";
 import { createPaymentsRouter } from "./payments";
 import { createTeamMembersRouter } from "./team-members";
+import { createUserRouter } from "./user";
 import { RouteRegistry } from "../utils/RouteRegistry";
 
 /**
@@ -58,6 +59,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register the team members route with its standalone GET /api/user/teams endpoint
   app.use(teamMembersRouter);
+  
+  // Register the user router for profile management
+  const userRouter = createUserRouter(storage);
+  app.use("/api/user", userRouter);
   
   // Register other routes
   app.use("/api/teams", createTeamsRouter(storage));

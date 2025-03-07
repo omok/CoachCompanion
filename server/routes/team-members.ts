@@ -182,7 +182,7 @@ export function createTeamMembersRouter(storage: IStorage) {
 
       // Validate the request body
       const validatedData = z.object({
-        role: z.enum([TEAM_ROLES.OWNER, TEAM_ROLES.ASSISTANT_COACH, TEAM_ROLES.TEAM_MANAGER, TEAM_ROLES.PARENT]).optional(),
+        role: z.enum([TEAM_ROLES.OWNER, TEAM_ROLES.ASSISTANT_COACH, TEAM_ROLES.TEAM_MANAGER, TEAM_ROLES.REGULAR]).optional(),
         isOwner: z.boolean().optional()
       }).parse(req.body);
 

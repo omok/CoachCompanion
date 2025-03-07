@@ -120,7 +120,7 @@ export const userRolePermissions: Record<UserRole, UserRolePermissions> = {
  * This object defines what permissions each team role has within a team.
  * 
  * ------------------------------------------------------------------------------------
- * | Permission        | Owner | AssistantCoach | TeamManager | Parent               |
+ * | Permission        | Owner | AssistantCoach | TeamManager | Regular               |
  * ------------------------------------------------------------------------------------
  * | seeTeamRoster     |   ✓   |       ✓        |      ✓      |   ✓                  |
  * | addPlayer         |   ✓   |       ✓        |      ✓      |   ✗                  |
@@ -167,7 +167,7 @@ export const teamRolePermissions: Record<TeamRole, TeamRolePermissions> = {
     deleteTeam: false,
     manageTeamSettings: false,
   },
-  [TEAM_ROLES.PARENT]: {
+  [TEAM_ROLES.REGULAR]: {
     seeTeamRoster: true,
     addPlayer: false,
     takeAttendance: false,
@@ -197,9 +197,9 @@ export function userRoleHasPermission(
 /**
  * Check if a team role has a specific permission
  * 
- * @param role The team role (Owner, AssistantCoach, TeamManager, or Parent)
- * @param permission The permission to check
- * @returns Whether the team role has the requested permission
+ * @param role The team role (Owner, AssistantCoach, TeamManager, or Regular)
+ * @param permission The permission key to check
+ * @returns boolean indicating if the role has the permission
  */
 export function teamRoleHasPermission(role: TeamRole, permission: keyof TeamRolePermissions): boolean {
   return teamRolePermissions[role][permission];

@@ -46,7 +46,7 @@ export const teamMembers = pgTable("team_members", {
   id: serial("id").primaryKey(),
   teamId: integer("team_id").notNull(),
   userId: integer("user_id").notNull(),
-  role: varchar("role").notNull(), // Owner, AssistantCoach, TeamManager, Parent
+  role: varchar("role").notNull(), // Owner, AssistantCoach, TeamManager, Regular
   isOwner: boolean("is_owner").notNull().default(false),
   lastUpdatedByUser: integer("lastUpdatedByUser").notNull(),
 });
@@ -126,7 +126,7 @@ export const insertTeamSchema = z.object({
 export const insertTeamMemberSchema = z.object({
   teamId: z.number(),
   userId: z.number(),
-  role: z.enum([TEAM_ROLES.OWNER, TEAM_ROLES.ASSISTANT_COACH, TEAM_ROLES.TEAM_MANAGER, TEAM_ROLES.PARENT]),
+  role: z.enum([TEAM_ROLES.OWNER, TEAM_ROLES.ASSISTANT_COACH, TEAM_ROLES.TEAM_MANAGER, TEAM_ROLES.REGULAR]),
   isOwner: z.boolean().optional().default(false),
 });
 

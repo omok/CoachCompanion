@@ -5,6 +5,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
+import { TEAM_ROLES } from "@shared/constants";
 import {
   Table,
   TableBody,
@@ -241,9 +242,9 @@ export function TeamMemberList({ teamId }: { teamId: number }) {
                     <SelectValue placeholder="Select a role" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="AssistantCoach">Assistant Coach</SelectItem>
-                    <SelectItem value="TeamManager">Team Manager</SelectItem>
-                    <SelectItem value="Parent">Parent</SelectItem>
+                    <SelectItem value={TEAM_ROLES.ASSISTANT_COACH}>Assistant Coach</SelectItem>
+                    <SelectItem value={TEAM_ROLES.TEAM_MANAGER}>Team Manager</SelectItem>
+                    <SelectItem value={TEAM_ROLES.REGULAR}>Regular</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

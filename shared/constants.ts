@@ -15,7 +15,7 @@ export const TEAM_ROLES = {
   OWNER: 'Owner',
   ASSISTANT_COACH: 'AssistantCoach',
   TEAM_MANAGER: 'TeamManager',
-  PARENT: 'Parent',
+  REGULAR: 'Regular',
 } as const;
 
 // Type definitions for type safety

@@ -22,6 +22,8 @@ import { CreateTeamDialog } from "@/components/create-team-dialog";
 import { USER_ROLES, type UserRole } from '@shared/constants';
 import { userRoleHasPermission, USER_ROLE_PERMISSIONS } from '@shared/access-control';
 import { usePermissions } from "@/hooks/usePermissions";
+import { useTeamMember, type TeamMembership } from "@/hooks/useTeamMember";
+import { useMemo } from "react";
 
 export default function Dashboard() {
   const { user, logoutMutation } = useAuth();
@@ -35,9 +37,34 @@ export default function Dashboard() {
   const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<"roster" | "attendance" | "notes" | "payments" | "settings">("roster");
 
+  // Fetch teams data
   const { data: teams, isLoading: isLoadingTeams } = useQuery<Team[]>({
     queryKey: ["/api/teams"],
   });
+
+  // Fetch team memberships for the current user
+  const { teamMembership, isLoading: isLoadingMemberships } = useTeamMember();
+
+  // Create a map of teamId -> role for quick lookup
+  const teamRoleMap = useMemo(() => {
+    const map = new Map<number, string>();
+    teamMembership.forEach(membership => {
+      map.set(membership.teamId, membership.role);
+    });
+    return map;
+  }, [teamMembership]);
+
+  // Sort teams by name and attach role information
+  const sortedTeamsWithRoles = useMemo(() => {
+    if (!teams) return [];
+    
+    return [...teams]
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map(team => ({
+        ...team,
+        userRole: teamRoleMap.get(team.id) || ""
+      }));
+  }, [teams, teamRoleMap]);
 
   const selectedTeam = teams?.find((t) => t.id === selectedTeamId);
 
@@ -53,11 +80,11 @@ export default function Dashboard() {
         {/* Team Selection */}
         <div className="p-4 border-b">
           <h2 className="text-sm font-medium mb-2">Teams</h2>
-          {isLoadingTeams ? (
+          {isLoadingTeams || isLoadingMemberships ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <div className="space-y-1">
-              {teams?.map((team) => (
+              {sortedTeamsWithRoles.map((team) => (
                 <Button
                   key={team.id}
                   variant={selectedTeamId === team.id ? "secondary" : "ghost"}
@@ -65,7 +92,14 @@ export default function Dashboard() {
                   onClick={() => setSelectedTeamId(team.id)}
                 >
                   <ClipboardList className="h-4 w-4 mr-2" />
-                  {team.name}
+                  <span className="text-left truncate">
+                    {team.name}
+                    {team.userRole && (
+                      <span className="ml-1 text-xs text-muted-foreground">
+                        ({team.userRole})
+                      </span>
+                    )}
+                  </span>
                 </Button>
               ))}
               {user?.role && userRoleHasPermission(user.role as UserRole, USER_ROLE_PERMISSIONS.CREATE_NEW_TEAM) && <CreateTeamDialog />}

@@ -3,6 +3,7 @@ import {
   type User, type Team, type Player, type Attendance, type PracticeNote, type Payment, type TeamMember, type TeamMemberWithUser,
   type InsertUser, type InsertTeam, type InsertPlayer, type InsertAttendance, type InsertPracticeNote, type InsertPayment, type InsertTeamMember
 } from "@shared/schema";
+import { type TeamRole } from "@shared/constants";
 import { db } from "./db";
 import { eq, and, gte, lte, sum, desc, inArray } from "drizzle-orm";
 import session from "express-session";
@@ -10,6 +11,7 @@ import connectPgSimple from "connect-pg-simple";
 import { pool } from "./db";
 import { Logger } from "./logger";
 import { hashPassword } from "./auth";
+import { isValidTeamRole, getSuggestedTeamRole } from './utils/validation';
 
 const PostgresStore = connectPgSimple(session);
 
@@ -824,16 +826,38 @@ export class Storage implements IStorage {
   /**
    * Create a new team member
    * 
-   * This method adds a user to a team with a specific role
-   * 
    * @param teamMember - The team member data to insert
    * @param context - The storage context containing the current user ID
    * @returns The created team member with ID assigned
    */
   async createTeamMember(teamMember: InsertTeamMember, context: StorageContext): Promise<TeamMember> {
     try {
-      const [newTeamMember] = await db.insert(teamMembers).values(this.addAuditField(teamMember, context)).returning();
-      return newTeamMember;
+      // Validate and potentially correct the role
+      if (!isValidTeamRole(teamMember.role)) {
+        const suggestedRole = getSuggestedTeamRole(teamMember.role);
+        
+        if (suggestedRole !== teamMember.role) {
+          Logger.info(`Auto-correcting team member role from "${teamMember.role}" to "${suggestedRole}"`, {
+            teamId: teamMember.teamId,
+            userId: teamMember.userId
+          });
+          
+          teamMember.role = suggestedRole as TeamRole;
+        } else {
+          // If we can't suggest a correction, log a warning but continue with validation error
+          Logger.warn(`Creating team member with invalid role: ${teamMember.role}`, {
+            teamId: teamMember.teamId,
+            userId: teamMember.userId
+          });
+        }
+      }
+      
+      const result = await db
+        .insert(teamMembers)
+        .values(this.addAuditField(teamMember, context))
+        .returning();
+      
+      return result[0];
     } catch (error) {
       Logger.error("Error creating team member", error);
       throw error;
@@ -926,18 +950,37 @@ export class Storage implements IStorage {
    */
   async updateTeamMember(id: number, updates: Partial<InsertTeamMember>, context: StorageContext): Promise<TeamMember> {
     try {
-      const result = await db.update(teamMembers)
+      // Validate role if it's being updated
+      if (updates.role && !isValidTeamRole(updates.role)) {
+        const suggestedRole = getSuggestedTeamRole(updates.role);
+        
+        if (suggestedRole !== updates.role) {
+          Logger.info(`Auto-correcting team member role from "${updates.role}" to "${suggestedRole}"`, {
+            teamMemberId: id
+          });
+          
+          updates.role = suggestedRole as TeamRole;
+        } else {
+          // If we can't suggest a correction, log a warning but continue with validation error
+          Logger.warn(`Updating team member with invalid role: ${updates.role}`, {
+            teamMemberId: id
+          });
+        }
+      }
+      
+      const result = await db
+        .update(teamMembers)
         .set(this.addAuditField(updates, context))
         .where(eq(teamMembers.id, id))
         .returning();
       
       if (!result.length) {
-        throw new Error(`Team member with ID ${id} not found`);
+        throw new Error(`Team member with id ${id} not found`);
       }
       
       return result[0];
     } catch (error) {
-      Logger.error("Error updating team member", error);
+      Logger.error(`Error updating team member: ${id}`, error);
       throw error;
     }
   }

@@ -7,6 +7,7 @@ import { Logger } from '../logger';
 import { TEAM_ROLE_PERMISSIONS } from "@shared/access-control";
 import { TEAM_ROLES } from "@shared/constants";
 import { TEAM_PERMISSION_KEYS } from '@shared/access-control';
+import { isValidTeamRole, getSuggestedTeamRole } from '../utils/validation';
 
 /**
  * Creates a router for team members endpoints
@@ -23,25 +24,52 @@ export function createTeamMembersRouter(storage: IStorage) {
    * Get all team memberships for the authenticated user
    */
   router.get('/api/user/teams', async (req, res) => {
+    // Log the authentication state for debugging
+    Logger.info("Accessing team memberships", {
+      isAuthenticated: req.isAuthenticated?.() || false,
+      hasUserObject: !!req.user,
+      sessionExists: !!req.session,
+      sessionUserId: req.session?.userId,
+      requestHeaders: req.headers['cookie'] ? 'Cookie header exists' : 'No cookie header'
+    });
 
-    // Get the user ID either from session or passport user
-    const userId = req.session.userId || (req.user ? (req.user as any).id : null) || 
+    // Get the user ID from any available source
+    const userId = req.user?.id || 
+                  req.session?.userId || 
                   (req.session as any)?.passport?.user;
 
     // Check if user is authenticated
     if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      Logger.warn("Unauthorized team memberships access", { 
+        ip: req.ip,
+        headers: req.headers['cookie'] ? 'Has cookies' : 'No cookies'
+      });
+      return res.status(401).json({ 
+        error: 'Unauthorized',
+        message: 'You must be logged in to access team memberships'
+      });
     }
 
     try {
-      
       // Call the storage method to get team memberships
       const teamMemberships = await storage.getTeamMembersByUserId(userId);
       
+      // Log the retrieved memberships for debugging
+      Logger.info(`Retrieved ${teamMemberships.length} team memberships for user ${userId}`, {
+        teamsFound: teamMemberships.map(tm => ({
+          teamId: tm.teamId,
+          role: tm.role,
+          isOwner: tm.isOwner
+        }))
+      });
+      
       res.json(teamMemberships);
     } catch (error) {
-      Logger.error('Error fetching team memberships', { error });
-      res.status(500).json({ error: 'Failed to fetch team memberships' });
+      Logger.error('Error fetching team memberships', { error, userId });
+      res.status(500).json({ 
+        error: 'Failed to fetch team memberships',
+        message: 'An error occurred while retrieving your team memberships'
+      });
     }
   });
 
@@ -70,33 +98,70 @@ export function createTeamMembersRouter(storage: IStorage) {
   /**
    * POST /api/teams/:teamId/members
    * 
-   * Add a new member to a team
+   * Create a new team member (add a user to a team with a specific role)
+   * 
    * Requires INVITE_TEAM_MEMBERS permission
    */
   router.post('/api/teams/:teamId/members', requireTeamRolePermission(TEAM_PERMISSION_KEYS.INVITE_TEAM_MEMBERS), async (req, res) => {
     try {
+      // Parse and validate the team ID
       const teamId = parseInt(req.params.teamId);
-      
       if (isNaN(teamId)) {
-        return res.status(400).json({ error: 'Invalid team ID' });
+        return res.status(400).json({
+          error: 'Invalid Request',
+          message: 'Team ID must be a valid number'
+        });
       }
-
-      // Get the current user ID from the session
-      const userId = req.session.userId;
-      if (!userId) {
-        return res.status(401).json({ error: 'Unauthorized' });
+      
+      // Validate the role
+      if (req.body.role && !isValidTeamRole(req.body.role)) {
+        const suggestedRole = getSuggestedTeamRole(req.body.role);
+        
+        if (suggestedRole !== req.body.role) {
+          // Log that we're autocorrecting
+          Logger.info(`Auto-correcting team member role from "${req.body.role}" to "${suggestedRole}"`, {
+            teamId,
+            userId: req.body.userId
+          });
+          
+          // Update the role to the suggested one
+          req.body.role = suggestedRole;
+        } else {
+          // Can't correct, return validation error
+          return res.status(400).json({
+            error: 'Validation Error',
+            message: `Invalid team role: "${req.body.role}". Valid roles are: ${Object.values(TEAM_ROLES).join(', ')}`,
+            validRoles: Object.values(TEAM_ROLES)
+          });
+        }
       }
-
-      // Validate and create the new member
-      const validatedData = insertTeamMemberSchema.parse({ ...req.body, teamId });
-      const newMember = await storage.createTeamMember(validatedData, { currentUserId: userId });
-      res.status(201).json(newMember);
+      
+      // Parse and validate the request
+      try {
+        const parsedData = insertTeamMemberSchema.parse({
+          ...req.body,
+          teamId
+        });
+        
+        // Create the team member
+        const teamMember = await storage.createTeamMember(parsedData, { currentUserId: req.user?.id || 0 });
+        
+        // Return success response
+        res.status(201).json(teamMember);
+      } catch (err) {
+        Logger.error('Error inserting team member', { error: err });
+        return res.status(400).json({
+          error: 'Validation Error',
+          message: 'Invalid team member data',
+          details: err
+        });
+      }
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: error.errors });
-      }
       Logger.error('Error creating team member', { error });
-      res.status(500).json({ error: 'Failed to create team member' });
+      res.status(500).json({
+        error: 'Server Error',
+        message: 'An error occurred while creating the team member'
+      });
     }
   });
 

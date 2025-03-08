@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Player, Attendance, PracticeNote, Payment } from "@shared/schema";
+import { Player, Attendance, PracticeNote } from "@shared/schema";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,6 +27,8 @@ import {
 import { AttendanceStats } from "@/components/attendance-stats";
 import { format, parseISO } from "date-fns";
 import { USER_ROLES } from '@shared/constants';
+import { usePermissions } from "@/hooks/usePermissions";
+import { PlayerPaymentRecords } from "./player-payment-records";
 
 interface PlayerDetailsProps {
   teamId: number;
@@ -76,14 +78,19 @@ export function PlayerDetails({
 }: PlayerDetailsProps) {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("details");
+  const { canManagePayments } = usePermissions();
+  const hasPaymentPermission = canManagePayments(teamId);
 
-  // Set default tab based on user role
+  // Set default tab based on user role and permissions
   useEffect(() => {
-    // If the user is not a coach and the active tab is "notes", switch to "details"
-    if (user?.role !== USER_ROLES.COACH && activeTab === "notes") {
+    // If the user doesn't have permission for notes or payments, switch to details
+    if (
+      (user?.role !== USER_ROLES.COACH && activeTab === "notes") ||
+      (!hasPaymentPermission && activeTab === "payments")
+    ) {
       setActiveTab("details");
     }
-  }, [user?.role, activeTab]);
+  }, [user?.role, activeTab, hasPaymentPermission]);
 
   // Fetch player details
   const { data: player, isLoading: isLoadingPlayer } = useQuery<Player>({
@@ -102,23 +109,6 @@ export function PlayerDetails({
     queryKey: [`/api/teams/${teamId}/practice-notes/player/${playerId}`],
     enabled: !!teamId && !!playerId && user?.role === USER_ROLES.COACH,
   });
-
-  // Fetch payments
-  const { data: payments, isLoading: isLoadingPayments, refetch: refetchPayments } = useQuery<Payment[]>({
-    queryKey: [`/api/teams/${teamId}/payments/player/${playerId}`],
-    enabled: !!teamId && !!playerId && user?.role === USER_ROLES.COACH,
-  });
-
-  // Calculate payment total
-  const paymentTotal = payments?.reduce((sum, payment) => sum + Number(payment.amount), 0) || 0;
-
-  // Ensure we always have latest payment data when component mounts
-  useEffect(() => {
-    if (teamId && playerId && user?.role === USER_ROLES.COACH) {
-      // Refetch payment data when component mounts
-      refetchPayments();
-    }
-  }, [teamId, playerId, user?.role, refetchPayments]);
 
   // Check if the current user is a parent of this player
   const isParentOfPlayer = user?.role === USER_ROLES.NORMAL && player?.parentId === user?.id;
@@ -207,7 +197,7 @@ export function PlayerDetails({
               <span className="inline">Notes</span>
             </TabsTrigger>
           )}
-          {user?.role === USER_ROLES.COACH && (
+          {hasPaymentPermission && (
             <TabsTrigger value="payments" className="text-xs sm:text-sm px-1 sm:px-3 py-2 sm:py-2 h-auto flex items-center justify-center">
               <DollarSign className="h-4 w-4 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
               <span className="inline">Payments</span>
@@ -388,76 +378,13 @@ export function PlayerDetails({
           </TabsContent>
         )}
 
-        {/* Payments Tab (Coach Only) */}
-        {user?.role === USER_ROLES.COACH && (
+        {/* Payments Tab (Only for users with payment permissions) */}
+        {hasPaymentPermission && (
           <TabsContent value="payments">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
-              <Card>
-                <CardHeader className="pb-1 sm:pb-2">
-                  <CardTitle className="text-sm sm:text-base">Total Payments</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {isLoadingPayments ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <div className="text-xl sm:text-3xl font-bold">
-                      ${paymentTotal.toFixed(2)}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader className="pb-1 sm:pb-2">
-                  <CardTitle className="text-sm sm:text-base">Payment Count</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {isLoadingPayments ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <div className="text-xl sm:text-3xl font-bold">
-                      {payments?.length || 0}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-
-            <Card>
-              <CardHeader className="pb-2 sm:pb-4">
-                <CardTitle className="text-lg sm:text-xl">Payment History</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0 sm:p-6">
-                {isLoadingPayments ? (
-                  <div className="flex justify-center py-4">
-                    <Loader2 className="h-6 w-6 animate-spin" />
-                  </div>
-                ) : payments?.length ? (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="text-xs sm:text-sm">Date</TableHead>
-                          <TableHead className="text-xs sm:text-sm">Amount</TableHead>
-                          <TableHead className="text-xs sm:text-sm">Notes</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {payments.map((payment) => (
-                          <TableRow key={payment.id}>
-                            <TableCell className="text-xs sm:text-sm py-2 sm:py-4">{formatDisplayDate(payment.date)}</TableCell>
-                            <TableCell className="text-xs sm:text-sm py-2 sm:py-4">${Number(payment.amount).toFixed(2)}</TableCell>
-                            <TableCell className="text-xs sm:text-sm py-2 sm:py-4 truncate max-w-[150px] sm:max-w-none">{payment.notes || "-"}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                ) : (
-                  <p className="text-center py-4 text-muted-foreground text-sm">No payment records found</p>
-                )}
-              </CardContent>
-            </Card>
+            <PlayerPaymentRecords 
+              teamId={teamId}
+              playerId={playerId}
+            />
           </TabsContent>
         )}
       </Tabs>

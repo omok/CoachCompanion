@@ -25,10 +25,11 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Loader2, UserPlus, EyeIcon, Pencil, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Loader2, UserPlus, EyeIcon, Pencil, ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, ChevronUp } from "lucide-react";
 import { usePlayerContext } from "./player-context";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
+import { ExpandablePlayerDetails } from "./expandable-player-details";
 
 type SortField = 'status' | 'name' | 'jerseyNumber';
 type SortDirection = 'asc' | 'desc';
@@ -42,6 +43,7 @@ export function TeamRoster({ teamId }: { teamId: number }) {
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [expandedPlayerId, setExpandedPlayerId] = useState<number | null>(null);
   
   const form = useForm({
     resolver: zodResolver(insertPlayerSchema.omit({ teamId: true })),
@@ -169,6 +171,11 @@ export function TeamRoster({ teamId }: { teamId: number }) {
     });
   };
 
+  const togglePlayerExpansion = (playerId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedPlayerId(expandedPlayerId === playerId ? null : playerId);
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center">
@@ -181,6 +188,9 @@ export function TeamRoster({ teamId }: { teamId: number }) {
   const displayedPlayers = sortPlayers(
     showAllPlayers ? players : players?.filter(player => player.active)
   );
+
+  // Calculate the number of columns for colSpan
+  const columnCount = canAddPlayer(teamId) ? 4 : 3;
 
   return (
     <div>
@@ -303,45 +313,63 @@ export function TeamRoster({ teamId }: { teamId: number }) {
         </TableHeader>
         <TableBody>
           {displayedPlayers.map((player) => (
-            <TableRow 
-              key={player.id} 
-              className="hover:bg-muted/50 cursor-pointer"
-            >
-              <TableCell onClick={() => showPlayerDetails(teamId, player.id)}>
-                <div className="font-medium text-primary hover:text-primary/80">
-                  {player.name}
-                </div>
-              </TableCell>
-              <TableCell onClick={() => showPlayerDetails(teamId, player.id)}>
-                {player.jerseyNumber || "-"}
-              </TableCell>
-              <TableCell onClick={() => showPlayerDetails(teamId, player.id)}>
-                <span
-                  className={`px-2 py-1 rounded-full text-xs ${
-                    player.active
-                      ? "bg-green-100 text-green-700"
-                      : "bg-red-100 text-red-700"
-                  }`}
-                >
-                  {player.active ? "Active" : "Inactive"}
-                </span>
-              </TableCell>
-              {canAddPlayer(teamId) && (
-                <TableCell className="text-right">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    title="Edit player"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleEditPlayer(player);
-                    }}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
+            <React.Fragment key={player.id}>
+              <TableRow 
+                className={`hover:bg-muted/50 cursor-pointer ${
+                  expandedPlayerId === player.id ? "bg-muted/50 border-b-0" : ""
+                }`}
+                onClick={(e) => togglePlayerExpansion(player.id, e)}
+              >
+                <TableCell>
+                  <div className="font-medium text-primary hover:text-primary/80 flex items-center gap-2">
+                    {player.name}
+                    {expandedPlayerId === player.id ? 
+                      <ChevronUp className="h-4 w-4" /> : 
+                      <ChevronDown className="h-4 w-4" />
+                    }
+                  </div>
                 </TableCell>
+                <TableCell>
+                  {player.jerseyNumber || "-"}
+                </TableCell>
+                <TableCell>
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs ${
+                      player.active
+                        ? "bg-green-100 text-green-700"
+                        : "bg-red-100 text-red-700"
+                    }`}
+                  >
+                    {player.active ? "Active" : "Inactive"}
+                  </span>
+                </TableCell>
+                {canAddPlayer(teamId) && (
+                  <TableCell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      title="Edit player"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditPlayer(player);
+                      }}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                )}
+              </TableRow>
+              
+              {/* Expanded details section */}
+              {expandedPlayerId === player.id && (
+                <ExpandablePlayerDetails 
+                  teamId={teamId}
+                  playerId={player.id}
+                  onClose={() => setExpandedPlayerId(null)}
+                  colSpan={columnCount}
+                />
               )}
-            </TableRow>
+            </React.Fragment>
           ))}
         </TableBody>
       </Table>

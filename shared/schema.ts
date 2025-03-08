@@ -25,7 +25,7 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: varchar("username").notNull().unique(),
   password: varchar("password").notNull(),
-  role: varchar("role").notNull(), // Coach or Parent
+  role: varchar("role").notNull(), // Coach or Normal
   name: varchar("name").notNull(),
   lastUpdatedByUser: integer("lastUpdatedByUser").notNull(),
 });
@@ -104,10 +104,10 @@ export const payments = pgTable("payments", {
 
 export const insertUserSchema = z.object({
   id: z.number().optional(),
-  username: z.string(),
-  password: z.string(),
-  role: z.enum([USER_ROLES.COACH, USER_ROLES.PARENT]),
-  name: z.string(),
+  username: z.string().min(3).max(50),
+  password: z.string().min(6),
+  name: z.string().min(1),
+  role: z.enum([USER_ROLES.COACH, USER_ROLES.NORMAL]),
 });
 
 export const insertTeamSchema = z.object({

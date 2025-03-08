@@ -40,11 +40,11 @@ export const handleValidationError = (err: unknown, res: Response) => {
  * 
  * This function determines if a user has access to a team based on their role:
  * - Coaches can access teams they coach
- * - Parents can access teams their children are on
+ * - Normal users can access teams their children are on
  * 
  * @param userId - The user's ID
  * @param teamId - The team's ID
- * @param userRole - The user's role (coach or parent)
+ * @param userRole - The user's role (Coach or Normal)
  * @param storage - The storage interface for database access
  * @returns Promise resolving to a boolean indicating if the user has access
  */
@@ -54,12 +54,48 @@ export const hasTeamAccess = async (
   userRole: string,
   storage: any
 ): Promise<boolean> => {
-  if (userRole === "coach") {
+  if (userRole === "Coach") {
     const team = await storage.getTeamById(teamId);
     return team?.coachId === userId;
-  } else if (userRole === "parent") {
+  } else if (userRole === "Normal") {
     const children = await storage.getPlayersByParentId(userId);
     return children.some((child: Player) => child.teamId === teamId);
   }
   return false;
-}; 
+};
+
+/**
+ * Gets the teams that a user has access to based on their role
+ * 
+ * This is a helper function to determine which teams a user can access:
+ * - Coaches can access teams they coach
+ * - Normal users can access teams their children are on
+ * 
+ * @param userId - The ID of the user
+ * @param userRole - The user's role (Coach or Normal)
+ * @param storage - The storage interface for database operations
+ * @returns Promise resolving to an array of team IDs
+ */
+export async function getUserTeamIds(
+  userId: number,
+  userRole: string,
+  storage: IStorage
+): Promise<number[]> {
+  try {
+    let teamIds: number[] = [];
+    
+    if (userRole === "Coach") {
+      const teams = await storage.getTeamsByCoachId(userId);
+      teamIds = teams.map(team => team.id);
+    } else if (userRole === "Normal") {
+      const children = await storage.getPlayersByParentId(userId);
+      const childTeamIds = children.map(child => child.teamId);
+      teamIds = [...new Set(childTeamIds)];
+    }
+    
+    return teamIds;
+  } catch (error) {
+    Logger.error('Error getting user team IDs', { userId, userRole, error });
+    return [];
+  }
+} 

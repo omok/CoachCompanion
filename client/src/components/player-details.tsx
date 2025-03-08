@@ -121,7 +121,7 @@ export function PlayerDetails({
   }, [teamId, playerId, user?.role, refetchPayments]);
 
   // Check if the current user is a parent of this player
-  const isParentOfPlayer = user?.role === USER_ROLES.PARENT && player?.parentId === user?.id;
+  const isParentOfPlayer = user?.role === USER_ROLES.NORMAL && player?.parentId === user?.id;
   
   // Check if user can view this player's details (coach or parent of the player)
   const canViewPlayerDetails = user?.role === USER_ROLES.COACH || isParentOfPlayer;
@@ -149,7 +149,7 @@ export function PlayerDetails({
   }
 
   // If user is a parent but not the parent of this player, show access denied
-  if (user?.role === USER_ROLES.PARENT && !isParentOfPlayer) {
+  if (user?.role === USER_ROLES.NORMAL && !isParentOfPlayer) {
     return (
       <div className="flex flex-col items-center justify-center py-8">
         <h1 className="text-2xl font-bold mb-4">Access Denied</h1>

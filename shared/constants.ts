@@ -4,7 +4,7 @@
  */
 export const USER_ROLES = {
   COACH: 'Coach',
-  PARENT: 'Parent',
+  NORMAL: 'Normal',
 } as const;
 
 /**

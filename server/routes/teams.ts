@@ -114,7 +114,7 @@ export function createTeamsRouter(storage: IStorage): Router {
         // Coaches see teams they coach
         const coachTeams = await storage.getTeamsByCoachId(req.user.id);
         roleTeamIds = coachTeams.map(t => t.id);
-      } else if (req.user.role === USER_ROLES.PARENT) {
+      } else if (req.user.role === USER_ROLES.NORMAL) {
         // Parents see teams their children are on
         const parentTeams = await storage.getTeamsByParentId(req.user.id);
         roleTeamIds = parentTeams.map(t => t.id);

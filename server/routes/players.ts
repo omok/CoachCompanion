@@ -77,7 +77,7 @@ export function createPlayersRouter(storage: IStorage): Router {
       }
 
       // Set parentId automatically for parents, use provided value for coaches
-      const parentId = req.user.role === "parent" ? req.user.id : req.body.parentId;
+      const parentId = req.user.role === "Normal" ? req.user.id : req.body.parentId;
       
       const parsed = insertPlayerSchema.parse({
         ...req.body,
@@ -215,10 +215,10 @@ export function createPlayersRouter(storage: IStorage): Router {
       }
       
       // For parents, check if they are the parent of the player
-      if (req.user.role === "parent" && player.parentId !== req.user.id) {
-        return res.status(403).json({
-          error: 'Permission Denied',
-          message: 'You do not have permission to view this player'
+      if (req.user.role === "Normal" && player.parentId !== req.user.id) {
+        return res.status(403).json({ 
+          error: "Access denied", 
+          message: "You can only view details for your own children" 
         });
       }
       
@@ -295,10 +295,10 @@ export function createPlayersRouter(storage: IStorage): Router {
       }
       
       // For parents, check if they are the parent of the player
-      if (req.user.role === "parent" && player.parentId !== req.user.id) {
-        return res.status(403).json({
-          error: 'Permission Denied',
-          message: 'You do not have permission to update this player'
+      if (req.user.role === "Normal" && player.parentId !== req.user.id) {
+        return res.status(403).json({ 
+          error: "Access denied", 
+          message: "You can only update your own children" 
         });
       }
       

@@ -284,10 +284,10 @@ export function createAttendanceRouter(storage: IStorage): Router {
       }
       
       // For parents, check if they are the parent of the player
-      if (req.user.role === "parent" && player.parentId !== req.user.id) {
-        return res.status(403).json({
-          error: 'Permission Denied',
-          message: 'You do not have permission to view attendance for this player'
+      if (req.user.role === "Normal" && player.parentId !== req.user.id) {
+        return res.status(403).json({ 
+          error: "Access denied", 
+          message: "You can only view attendance for your own children" 
         });
       }
       

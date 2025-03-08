@@ -94,13 +94,13 @@ export interface TeamRolePermissions {
 /**
  * Permission configuration for User Roles
  * 
- * This object defines what permissions each user role has in the system.
+ * This object defines what permissions each user role has at the application level.
  * 
  * ---------------------------------------------------------
- * | Permission                 | Coach | Parent           |
+ * | Permission                 | Coach | Normal           |
  * ---------------------------------------------------------
  * | createNewTeam              |   ✓   |   ✗              |
- * | canBeInvitedAsAssistantCoach |   ✓   |   ✗            |
+ * | canBeInvitedAsAssistant    |   ✓   |   ✗              |
  * ---------------------------------------------------------
  */
 export const userRolePermissions: Record<UserRole, UserRolePermissions> = {
@@ -108,7 +108,7 @@ export const userRolePermissions: Record<UserRole, UserRolePermissions> = {
     [USER_ROLE_PERMISSIONS.CREATE_NEW_TEAM]: true,
     [USER_ROLE_PERMISSIONS.CAN_BE_INVITED_AS_ASSISTANT_COACH]: true,
   },
-  [USER_ROLES.PARENT]: {
+  [USER_ROLES.NORMAL]: {
     [USER_ROLE_PERMISSIONS.CREATE_NEW_TEAM]: false,
     [USER_ROLE_PERMISSIONS.CAN_BE_INVITED_AS_ASSISTANT_COACH]: false,
   },
@@ -183,7 +183,7 @@ export const teamRolePermissions: Record<TeamRole, TeamRolePermissions> = {
 /**
  * Check if a user role has a specific permission
  * 
- * @param userRole The role of the user (Coach or Parent)
+ * @param userRole The role of the user (Coach or Normal)
  * @param permission The permission to check from USER_ROLE_PERMISSIONS
  * @returns Whether the user role has the requested permission
  */

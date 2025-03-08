@@ -124,15 +124,15 @@ export default function AuthPage() {
                   <div className="space-y-2">
                     <Label htmlFor="role">Role</Label>
                     <Select
-                      defaultValue={USER_ROLES.COACH}
                       onValueChange={(value) => registerForm.setValue("role", value)}
+                      defaultValue={USER_ROLES.COACH}
                     >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select your role" />
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a role" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value={USER_ROLES.COACH}>Coach</SelectItem>
-                        <SelectItem value={USER_ROLES.PARENT}>Parent</SelectItem>
+                        <SelectItem value={USER_ROLES.NORMAL}>Normal</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

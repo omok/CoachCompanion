@@ -186,17 +186,17 @@ export function UserProfileDialog({ user }: UserProfileDialogProps) {
                 <FormItem>
                   <FormLabel>Role</FormLabel>
                   <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
+                    onValueChange={(value) => {
+                      form.setValue('role', value);
+                    }}
+                    defaultValue={user.role || ''}
                   >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a role" />
-                      </SelectTrigger>
-                    </FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a role" />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value={USER_ROLES.COACH}>Coach</SelectItem>
-                      <SelectItem value={USER_ROLES.PARENT}>Parent</SelectItem>
+                      <SelectItem value={USER_ROLES.NORMAL}>Normal</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />

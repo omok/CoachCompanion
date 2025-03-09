@@ -29,58 +29,72 @@ The application follows a layered architecture with clear separation of concerns
 
 ### Key Components
 
-1. **Client Layer**: React-based frontend with components, hooks, and client-side state management.
-2. **API Layer**: Express.js routes that handle HTTP requests, authentication, and validation.
-3. **Storage Layer**: Business logic and data access operations implemented in the `storage.ts` file.
-4. **Database Layer**: PostgreSQL database with Drizzle ORM for type-safe database operations.
+1. **Client Layer**: React-based frontend with components, hooks, and client-side state management using TanStack Query.
+2. **API Layer**: Express.js routes that handle HTTP requests, authentication, and validation, organized by resource type.
+3. **Storage Layer**: Business logic and data access operations implemented in the `storage.ts` file, with a clear interface.
+4. **Database Layer**: PostgreSQL database with Drizzle ORM for type-safe database operations and migrations.
 
 ## Data Model
 
 The application uses the following core entities:
 
 ### Users
-- Represents coaches and parents
-- Has a role (coach or parent) that determines permissions
+- Represents coaches and other users in the system
+- Has a role (Coach or Normal) that determines permissions
+- All users can be members of teams with different roles
 - Coaches can create and manage teams
-- Parents can view their children's information
+- Normal users (parents) can view their children's information
 
 ### Teams
 - Represents basketball teams
-- Always associated with a coach
-- Contains players, attendance records, practice notes, and payments
+- Has a coach (creator) and team members with different roles
+- Contains season dates and fee information
+- Associated with players, attendance records, practice notes, and payments
+
+### Team Members
+- Represents a user's membership in a team
+- Has a role (Owner, AssistantCoach, TeamManager, Regular) that determines permissions within the team
+- Owners have full control over a team
+- Different roles have different permissions (adding players, taking attendance, etc.)
 
 ### Players
-- Represents team members
-- Associated with both a team and a parent
-- This dual association enables team-based operations and parent-based access control
+- Represents team members (children/athletes)
+- Associated with a team and a parent (user)
+- Can be active or inactive
+- Has basic profile information including jersey number
 
 ### Attendance
 - Records player attendance at practices
 - Associated with a team, player, and date
-- Used for tracking participation and generating reports
+- Tracks present/absent status
+- Supports date range filtering for reporting
 
 ### Practice Notes
 - Records notes from practice sessions
-- Associated with a team, date, and optionally specific players
-- Enables coaches to track progress and share observations
+- Associated with a team, coach, and date
+- Can be associated with specific players or the entire team
+- Supports rich text content for detailed observations
 
 ### Payments
 - Records financial transactions
 - Associated with a team and player
-- Used for tracking fees and generating financial reports
+- Tracks amount, date, and notes
+- Supports reporting and summaries by player
 
 ## Business Logic
 
 ### Authentication and Authorization
 
-The application implements a role-based access control system:
+The application implements a comprehensive role-based access control system:
 
 1. **Authentication**: Uses Passport.js with local strategy for username/password authentication
 2. **Session Management**: Uses express-session with PostgreSQL session store for persistent sessions
-3. **Authorization Patterns**:
-   - Coaches can access and modify data for teams they coach
-   - Parents can access data for teams their children are on
-   - Some operations (like creating teams) are restricted to coaches only
+3. **CSRF Protection**: Implements double submit cookie pattern using csrf-csrf for security
+4. **Authorization Patterns**:
+   - User Role Permissions: Controls what actions a user can perform (create teams, etc.)
+   - Team Role Permissions: Controls what actions a user can perform within a team (add players, etc.)
+   - Permission checking middleware for securing API endpoints
+   - Client-side permission hooks for conditional UI rendering
 
 ### Team Management
 

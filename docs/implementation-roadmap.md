@@ -4,31 +4,39 @@ This document outlines a structured, phased approach to implementing features fo
 
 ## Phase 0: Already Implemented (Current State)
 
-Based on a review of the existing codebase, these features appear to be already implemented:
+Based on the review of the current codebase, these features have been implemented:
 
-- **Authentication System**: Secure login/logout functionality with role-based permissions distinguishing between coaches and parents, enabling appropriate access control throughout the application.
+- **Authentication System**: Secure login/logout functionality with role-based permissions (coaches and parents) using Passport.js with session management in PostgreSQL, including proper CSRF protection.
   
-- **Core Team Management**: Functionality for creating and managing multiple basketball teams, adding players to rosters, and maintaining basic team information such as team name and description.
+- **Core Team Management**: Team creation and management for coaches, including team description, season dates, and fee information, with appropriate permissions for different team roles (Owner, AssistantCoach, TeamManager, Regular).
   
-- **Basic Practice Management**: Tools for scheduling and documenting practice sessions, including date tracking and basic practice information to help coaches organize their training schedule.
+- **Player Roster Management**: Adding players to teams with parent association, basic player information storage, and active status tracking with clear team/player relationships.
   
-- **Attendance Tracking**: Systems to record and monitor player attendance at practices, helping coaches identify attendance patterns and manage player participation more effectively.
+- **Practice Management with Notes**: Creating practice sessions with dates, attaching detailed practice notes, and associating notes with specific players when needed.
   
-- **Initial Payment Tracking**: Basic functionality to record financial transactions from players, including payment amounts, dates, and simple payment totals by player.
+- **Attendance Tracking**: Recording player attendance at practice sessions, with date-based tracking and present/absent status for each player.
+  
+- **Basic Payment Tracking**: Recording payments from players, including amount, date, and notes, with basic payment totals by player.
+  
+- **Team Member Management**: Managing team members with different roles (Owner, AssistantCoach, TeamManager, Regular) and appropriate permissions for each role.
+  
+- **User Profile Management**: Basic user profile management including name, username, and password updates.
+  
+- **Permission System**: Comprehensive permission control system based on user roles and team membership, implementing role-based access throughout the application.
 
 ## Phase 1: Core Experience Enhancement (1-2 Months)
 
 Focus on improving already implemented features to create a solid foundation:
 
-- **Enhanced Player Management**: Expand player profiles to include detailed information such as positions played, jersey numbers, emergency contacts, and medical notes for comprehensive player information management.
+- **Enhanced Player Management**: Expand player profiles to include additional information such as positions played and emergency contacts (jersey number is already implemented), with better visualization of player information in the roster view.
   
-- **Improved Practice Management**: Add structured practice note templates, practice categorization options, and enhanced documentation tools for coaches to better plan and record their training sessions.
+- **Improved Practice Management**: Add practice categorization options (skills, scrimmage, conditioning), structured templates, and better organization of practice notes for easier tracking of team development over time.
   
-- **Advanced Attendance Analytics**: Implement visual attendance trends, automatic flagging of players with attendance issues, and customizable attendance reports to give coaches better insights into team participation.
+- **Advanced Attendance Analytics**: Enhance the current attendance tracking with visual trends, automatic flagging of attendance issues, and customizable period-based attendance reports for better insights into team participation patterns.
   
-- **Refined Payment System**: Enhance payment tracking with period-based reports, outstanding balance calculations, and automatic payment reminder generation to improve financial management for coaches.
+- **Refined Payment System**: Expand the current payment tracking with period-based financial reports, outstanding balance calculations, and payment due notifications to improve financial management for coaches.
   
-- **Mobile Responsiveness**: Optimize all existing features for mobile devices with special attention to court-side functionality such as attendance taking and practice management for real-time use during sessions.
+- **Mobile Responsiveness Optimization**: Further optimize the already mobile-friendly interface with special attention to court-side functionality like attendance taking and practice management during active sessions.
 
 ## Phase 2: Team Operations Essentials (2-3 Months)
 
@@ -104,4 +112,4 @@ Features targeting larger operations:
 
 5. **Metrics Collection**: Define and implement usage analytics from the beginning to understand feature adoption, identify pain points, and quantify the impact of new capabilities on user engagement.
 
-6. **Database Evolution**: Carefully plan for database schema evolution with migration strategies that preserve data integrity while accommodating the expanding data model required by advanced features. 
+6. **Database Evolution**: Carefully plan for database schema evolution with migration strategies that preserve data integrity while accommodating the expanding data model required by advanced features. The current schema already includes good audit tracking with lastUpdatedByUser fields for all entities. 

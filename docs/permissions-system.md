@@ -5,8 +5,8 @@ This document describes the permissions system implemented in CoachCompanion.
 ## Overview
 
 The permissions system is based on two key concepts:
-1. **User Types** - The role of the user in the system (Coach or Parent)
-2. **Team Roles** - The role of a user within a specific team (Owner, AssistantCoach, TeamManager, Parent)
+1. **User Roles** - The role of the user in the system (Coach or Normal)
+2. **Team Roles** - The role of a user within a specific team (Owner, AssistantCoach, TeamManager, Regular)
 
 ## Implementation
 
@@ -16,7 +16,7 @@ The permission system follows a "single source of truth" approach:
 
 The permissions are defined in a single, self-documenting file: `shared/access-control.ts`. This file contains:
 
-- Type definitions for UserType and TeamRole
+- Type definitions for UserRole and TeamRole (from `shared/constants.ts`)
 - Interface definitions for permissions
 - Permission configuration objects with embedded documentation
 - Helper functions for permission checks
@@ -30,19 +30,19 @@ This structured approach makes permissions:
 
 The backend enforces permissions through middleware functions in `server/utils/authorization.ts`:
 
-- `requireUserTypePermission`: Checks if a user's type has a specific permission
+- `requireUserTypePermission`: Checks if a user's role has a specific permission
 - `requireTeamRolePermission`: Checks if a user's role in a team has a specific permission
 
 Example usage:
 
 ```typescript
 // Only coaches can create teams
-router.post('/teams', requireUserTypePermission('createNewTeam'), async (req, res) => {
+router.post('/teams', requireUserTypePermission(USER_ROLE_PERMISSIONS.CREATE_NEW_TEAM), async (req, res) => {
   // Route implementation
 });
 
 // Only team members with addPlayer permission can add players
-router.post('/teams/:teamId/players', requireTeamRolePermission('teamId', 'addPlayer'), async (req, res) => {
+router.post('/teams/:teamId/players', requireTeamRolePermission(TEAM_PERMISSION_KEYS.ADD_PLAYER), async (req, res) => {
   // Route implementation
 });
 ```
@@ -51,7 +51,7 @@ router.post('/teams/:teamId/players', requireTeamRolePermission('teamId', 'addPl
 
 The frontend respects permissions through a React hook in `client/src/hooks/usePermissions.ts`:
 
-- `hasUserTypePermission`: Checks if the current user's type has a permission
+- `hasUserTypePermission`: Checks if the current user's role has a permission
 - `hasTeamRolePermission`: Checks if the current user's role in a team has a permission
 - Convenience methods for common permission checks
 
@@ -74,10 +74,10 @@ function TeamDetails({ teamId }) {
 
 For the current permission configuration, refer to the comments in `shared/access-control.ts`, which includes:
 
-### User Type Permissions
+### User Role Permissions
 
 ```
-| Permission                 | Coach | Parent |
+| Permission                 | Coach | Normal |
 ---------------------------------------------------------
 | createNewTeam              |   ✓   |   ✗    |
 | canBeInvitedAsAssistantCoach |   ✓   |   ✗    |
@@ -86,7 +86,7 @@ For the current permission configuration, refer to the comments in `shared/acces
 ### Team Role Permissions
 
 ```
-| Permission        | Owner | AssistantCoach | TeamManager | Parent |
+| Permission        | Owner | AssistantCoach | TeamManager | Regular |
 ------------------------------------------------------------------------------------
 | seeTeamRoster     |   ✓   |       ✓        |      ✓      |   ✓    |
 | addPlayer         |   ✓   |       ✓        |      ✓      |   ✗    |
@@ -111,9 +111,9 @@ Example:
 // To allow AssistantCoach to manage payments:
 export const teamRolePermissions: Record<TeamRole, TeamRolePermissions> = {
   // ...existing permissions
-  AssistantCoach: {
+  [TEAM_ROLES.ASSISTANT_COACH]: {
     // ...other permissions
-    managePayments: true, // Changed from false to true
+    [TEAM_ROLE_PERMISSIONS.MANAGE_PAYMENTS]: true, // Changed from false to true
   },
   // ...other roles
 };

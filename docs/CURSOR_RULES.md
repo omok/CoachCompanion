@@ -10,11 +10,14 @@ This document contains the coding standards and patterns to follow when working 
   - Hooks in `client/src/hooks/`
   - Utility functions in `client/src/lib/`
 - **Server**: All backend code in `server/` directory
-  - Routes in `server/routes/`
+  - Routes in `server/routes/` (organized by resource)
   - Database operations in `server/storage.ts`
   - Authentication in `server/auth.ts`
+  - Authorization in `server/utils/authorization.ts`
 - **Shared**: Code shared between client and server in `shared/` directory
   - Database schema in `shared/schema.ts`
+  - Access control configuration in `shared/access-control.ts`
+  - Constants in `shared/constants.ts`
 
 ## TypeScript Standards
 
@@ -25,6 +28,8 @@ This document contains the coding standards and patterns to follow when working 
    - For API responses, define proper interfaces reflecting the expected response structure
    - For complex objects with varying structures, use discriminated unions or generics
 4. **Type exports**: Maintain type exports at the bottom of schema files for consistency.
+5. **Use constants for enum-like values**: Instead of hardcoding string literals, use constants from shared files (e.g., `USER_ROLES.COACH` instead of `'Coach'`).
+6. **Include audit fields**: All entity types must include `lastUpdatedByUser` to maintain the audit trail.
 
 ## Frontend Patterns
 
@@ -32,12 +37,14 @@ This document contains the coding standards and patterns to follow when working 
    - Split complex components into smaller, reusable parts
    - Use the provided UI components from `client/src/components/ui/`
    - Follow the naming convention of `{feature}-{type}.tsx` (e.g., `team-roster.tsx`)
+   - Limit component size to under 400 lines, breaking larger components into subcomponents
 
 2. **State Management**:
    - Use React Query for server state management
    - Use local state (useState) for UI state
    - Use context for global state (auth, player selection)
    - Avoid prop drilling - use context when passing data through many components
+   - Leverage usePermissions hook for permission-based conditional rendering
 
 3. **Data Fetching**:
    - Always use the query client from `client/src/lib/queryClient.ts`
@@ -63,6 +70,8 @@ This document contains the coding standards and patterns to follow when working 
        },
      });
      ```
+   - Always include proper error handling and loading states
+   - Use date range parameters for filterable endpoints
 
 4. **Error Handling**:
    - Use toast notifications for user feedback on errors
@@ -72,17 +81,25 @@ This document contains the coding standards and patterns to follow when working 
 5. **Form Handling**:
    - Use React Hook Form with zod validation schemas
    - Reuse validation schemas from `shared/schema.ts`
+   - Add consistent error messaging for form validation errors
+   - Use numeric strings for monetary values to avoid precision issues
 
 6. **Logging**:
    - Use the established logging pattern with component name and action
    - Include non-sensitive debug data in development
 
+7. **Permissions and Conditional Rendering**:
+   - Use the usePermissions hook for permission checks
+   - Hide UI elements that users don't have permission to use
+   - Always match client-side permission checks with server-side enforcement
+
 ## Backend Patterns
 
 1. **API Routes**:
-   - Create route handlers in separate files in `server/routes/`
+   - Create route handlers in separate files in `server/routes/` organized by resource
    - Follow RESTful principles for endpoint design
    - Use middleware for authorization checks
+   - Implement query parameter support for filtering (e.g., date ranges)
    - Follow the pattern:
      ```typescript
      export function createEntityRouter(storage: IStorage) {
@@ -99,6 +116,7 @@ This document contains the coding standards and patterns to follow when working 
 2. **Database Operations**:
    - All database operations must go through the storage interface
    - Implement new features as methods on the Storage class in `server/storage.ts`
+   - Always set the `lastUpdatedByUser` field to maintain the audit trail
    - Follow the established pattern:
      ```typescript
      async getEntityById(id: number): Promise<Entity | undefined> {
@@ -112,10 +130,14 @@ This document contains the coding standards and patterns to follow when working 
      }
      ```
 
-3. **Authentication**:
+3. **Authentication & Authorization**:
    - Use the authentication middleware for routes that require authentication
-   - Use role-based checks for authorization (coach vs. parent)
+   - Always use the proper authorization middleware:
+     - `requireUserTypePermission` for user role-based permissions
+     - `requireTeamRolePermission` for team role-based permissions
+   - Use constants from `shared/access-control.ts` for permission keys
    - Password handling must use the scrypt implementation in `server/auth.ts`
+   - Always implement CSRF protection for non-GET routes
 
 4. **Error Handling**:
    - Use try/catch blocks in all async functions
@@ -126,6 +148,13 @@ This document contains the coding standards and patterns to follow when working 
 5. **Validation**:
    - Always validate input data using zod schemas
    - Reuse schemas from `shared/schema.ts`
+   - Validate date formats according to date-handling.md guidelines
+
+6. **Date Handling**:
+   - Follow the date handling guidelines in `docs/date-handling.md`
+   - Use YYYY-MM-DD string format for dates in API requests and responses
+   - Validate date strings with regex before processing
+   - Support date range filtering for relevant endpoints
 
 ## Data Model Standards
 
@@ -135,13 +164,22 @@ This document contains the coding standards and patterns to follow when working 
    - Add TypeScript type exports for all new entities
    - Update the Storage interface in `server/storage.ts`
    - Create migration scripts
+   - Always include `lastUpdatedByUser` field in all entities
 
 2. **Relationships**:
-   - Teams belong to coaches (users with role "coach")
-   - Players belong to teams and have a parent (users with role "parent")
+   - Users have roles (Coach or Normal)
+   - Team members have roles (Owner, AssistantCoach, TeamManager, Regular) 
+   - Players belong to teams and have a parent (users with Normal role)
    - Attendance records belong to players and teams
    - Practice notes belong to teams and coaches
    - Payments belong to players and teams
+
+3. **Permissions Model**:
+   - Follow the single source of truth principle for permissions
+   - Define all permissions in `shared/access-control.ts`
+   - User Role permissions control application-wide access
+   - Team Role permissions control team-specific access
+   - Use constants for permission keys to avoid typos
 
 ## Testing
 
@@ -169,7 +207,8 @@ This document contains the coding standards and patterns to follow when working 
 2. **Query Optimization**:
    - Set appropriate staleTime and cacheTime for queries
    - Use query invalidation strategically
-   - Avoid fetching all data when filtering can be done on the server
+   - Use server-side filtering when possible (date ranges, user-specific data)
+   - Implement pagination for large data sets
 
 3. **Bundle Size**:
    - Import only what you need from libraries
@@ -185,10 +224,11 @@ This document contains the coding standards and patterns to follow when working 
 2. **Authentication**:
    - Use secure password storage with proper hashing
    - Implement proper session management
-   - Use CSRF protection
+   - Use CSRF protection for all mutation operations
 
 3. **Authorization**:
-   - Check permissions on all protected routes
+   - Always use the proper authorization middleware for protected routes
+   - Match client-side permission checks with server-side enforcement
    - Validate that users can only access data they are authorized to see
 
 4. **Data Sanitization**:
@@ -219,4 +259,5 @@ This document contains the coding standards and patterns to follow when working 
 
 2. **User Documentation**:
    - Keep README updated
-   - Document user flows for new features 
+   - Document user flows for new features
+   - Use clear explanations for permission-related functionality 

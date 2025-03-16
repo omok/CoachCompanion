@@ -24,15 +24,6 @@ export function createTeamMembersRouter(storage: IStorage) {
    * Get all team memberships for the authenticated user
    */
   router.get('/api/user/teams', async (req, res) => {
-    // Log the authentication state for debugging
-    Logger.info("Accessing team memberships", {
-      isAuthenticated: req.isAuthenticated?.() || false,
-      hasUserObject: !!req.user,
-      sessionExists: !!req.session,
-      sessionUserId: req.session?.userId,
-      requestHeaders: req.headers['cookie'] ? 'Cookie header exists' : 'No cookie header'
-    });
-
     // Get the user ID from any available source
     const userId = req.user?.id || 
                   req.session?.userId || 
@@ -40,10 +31,6 @@ export function createTeamMembersRouter(storage: IStorage) {
 
     // Check if user is authenticated
     if (!userId) {
-      Logger.warn("Unauthorized team memberships access", { 
-        ip: req.ip,
-        headers: req.headers['cookie'] ? 'Has cookies' : 'No cookies'
-      });
       return res.status(401).json({ 
         error: 'Unauthorized',
         message: 'You must be logged in to access team memberships'
@@ -53,15 +40,6 @@ export function createTeamMembersRouter(storage: IStorage) {
     try {
       // Call the storage method to get team memberships
       const teamMemberships = await storage.getTeamMembersByUserId(userId);
-      
-      // Log the retrieved memberships for debugging
-      Logger.info(`Retrieved ${teamMemberships.length} team memberships for user ${userId}`, {
-        teamsFound: teamMemberships.map(tm => ({
-          teamId: tm.teamId,
-          role: tm.role,
-          isOwner: tm.isOwner
-        }))
-      });
       
       res.json(teamMemberships);
     } catch (error) {
@@ -118,12 +96,6 @@ export function createTeamMembersRouter(storage: IStorage) {
         const suggestedRole = getSuggestedTeamRole(req.body.role);
         
         if (suggestedRole !== req.body.role) {
-          // Log that we're autocorrecting
-          Logger.info(`Auto-correcting team member role from "${req.body.role}" to "${suggestedRole}"`, {
-            teamId,
-            userId: req.body.userId
-          });
-          
           // Update the role to the suggested one
           req.body.role = suggestedRole;
         } else {

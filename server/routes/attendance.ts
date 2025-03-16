@@ -47,12 +47,6 @@ export function createAttendanceRouter(storage: IStorage): Router {
    */
   router.post("/", requireTeamRolePermission(TEAM_PERMISSION_KEYS.TAKE_ATTENDANCE), async (req: Request<TeamParams>, res: Response) => {
     try {
-      Logger.info(`[API] POST /api/teams/${req.params.teamId}/attendance request received`, {
-        userId: req.user?.id,
-        userRole: req.user?.role,
-        bodySize: JSON.stringify(req.body).length
-      });
-
       if (!req.user) {
         Logger.warn(`[API] Unauthorized access attempt to record attendance`, {
           path: req.originalUrl,
@@ -112,17 +106,7 @@ export function createAttendanceRouter(storage: IStorage): Router {
         present: record.present
       }));
 
-      // Update attendance records
-      Logger.info(`[API] Updating attendance for team ${teamId}`, {
-        date,
-        recordCount: records.length
-      });
       const attendance = await storage.updateAttendance(teamId, date, records, { currentUserId: req.user.id });
-      Logger.info(`[API] Successfully updated attendance`, {
-        teamId,
-        date: date.toISOString(),
-        count: attendance.length
-      });
       res.status(201).json(attendance);
     } catch (err) {
       Logger.error(`[API] Error recording attendance`, { error: err });
@@ -149,11 +133,6 @@ export function createAttendanceRouter(storage: IStorage): Router {
    */
   router.get("/", async (req: Request<TeamParams, any, any, DateRangeQuery>, res) => {
     try {
-      Logger.info(`[API] GET /api/teams/${req.params.teamId}/attendance request received`, {
-        userId: req.user?.id,
-        userRole: req.user?.role
-      });
-
       if (!req.isAuthenticated()) {
         return res.status(401).json({
           error: 'Authentication Required',
@@ -210,10 +189,6 @@ export function createAttendanceRouter(storage: IStorage): Router {
       }
       
       const attendance = await storage.getAttendanceByTeamId(teamId);
-      Logger.info(`[API] Successfully retrieved attendance records`, {
-        teamId,
-        count: attendance.length
-      });
       res.json(attendance);
     } catch (err) {
       Logger.error(`[API] Error fetching attendance`, { error: err });

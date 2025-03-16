@@ -189,8 +189,6 @@ export class Storage implements IStorage {
    */
   async createUser(user: InsertUser, context?: StorageContext): Promise<User> {
     try {
-      Logger.info("Creating new user", { username: user.username });
-
       // First create the user with a temporary lastUpdatedByUser value
       const result = await db.insert(users)
         .values({ ...user, lastUpdatedByUser: -1 }) // Use -1 as a temporary value
@@ -212,7 +210,6 @@ export class Storage implements IStorage {
         throw new Error("Failed to update lastUpdatedByUser for new user");
       }
 
-      Logger.info("Successfully created user", { userId: newUser.id });
       return updatedResult[0];
     } catch (error) {
       Logger.error("Error creating user", error);
@@ -426,11 +423,6 @@ export class Storage implements IStorage {
    * @returns Array of updated attendance records
    */
   async updateAttendance(teamId: number, date: Date, records: InsertAttendance[], context: StorageContext): Promise<Attendance[]> {
-    Logger.info(`[Storage] updateAttendance started for team ${teamId}`, {
-      date: date.toISOString(),
-      recordCount: records.length,
-      presentCount: records.filter(r => r.present).length
-    });
 
     // Get the date string in YYYY-MM-DD format
     const dateStr = date.toLocaleDateString('en-CA');
@@ -455,8 +447,6 @@ export class Storage implements IStorage {
           )
         );
       
-      Logger.info(`[Storage] Deleted existing attendance records`, { deleteResult });
-
       // Insert new records
       if (records.length > 0) {
         Logger.debug(`[Storage] Inserting ${records.length} attendance records`, {
@@ -469,11 +459,9 @@ export class Storage implements IStorage {
           date: ensureDate(record.date)
         }));
         const result = await db.insert(attendance).values(recordsWithAudit).returning();
-        Logger.info(`[Storage] Successfully inserted ${result.length} attendance records`);
         return result;
       }
 
-      Logger.info(`[Storage] No attendance records to insert`);
       return [];
     } catch (error) {
       Logger.error(`[Storage] Error updating attendance records`, { error });
@@ -837,11 +825,6 @@ export class Storage implements IStorage {
         const suggestedRole = getSuggestedTeamRole(teamMember.role);
         
         if (suggestedRole !== teamMember.role) {
-          Logger.info(`Auto-correcting team member role from "${teamMember.role}" to "${suggestedRole}"`, {
-            teamId: teamMember.teamId,
-            userId: teamMember.userId
-          });
-          
           teamMember.role = suggestedRole as TeamRole;
         } else {
           // If we can't suggest a correction, log a warning but continue with validation error
@@ -955,10 +938,6 @@ export class Storage implements IStorage {
         const suggestedRole = getSuggestedTeamRole(updates.role);
         
         if (suggestedRole !== updates.role) {
-          Logger.info(`Auto-correcting team member role from "${updates.role}" to "${suggestedRole}"`, {
-            teamMemberId: id
-          });
-          
           updates.role = suggestedRole as TeamRole;
         } else {
           // If we can't suggest a correction, log a warning but continue with validation error

@@ -59,11 +59,6 @@ export function requireTeamRolePermission(permission: TeamRolePermissionKey) {
       const userId = getUserId(req);
       
       if (!userId) {
-        console.log('[Auth] requireTeamRolePermission - No user ID found', { 
-          session: req.session,
-          isAuthenticated: req.isAuthenticated(),
-          user: req.user
-        });
         return res.status(401).json({ error: 'Unauthorized' });
       }
 

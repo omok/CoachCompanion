@@ -60,20 +60,6 @@ export class LoggerService {
           )
         `);
       }
-      
-      // Also log to console
-      if (entry.errorMessage) {
-        Logger.error(`${entry.action} ${entry.endpoint} ${entry.statusCode || ''} ${entry.errorMessage}`, {
-          userId: entry.userId,
-          ...entry.additionalData
-        });
-      } else {
-        Logger.info(`${entry.action} ${entry.endpoint} ${entry.statusCode || ''}`, {
-          userId: entry.userId,
-          responseTime: entry.responseTime,
-          ...entry.additionalData
-        });
-      }
     } catch (error) {
       // If database logging fails, at least log to console
       Logger.error('Failed to log event to database', error);

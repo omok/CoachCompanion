@@ -7,7 +7,7 @@
  * - The column is required (not null) to ensure audit trail completeness
  */
 
-import { pgTable, varchar, serial, integer, boolean, timestamp, json, numeric, date } from "drizzle-orm/pg-core";
+import { pgTable, varchar, serial, integer, boolean, timestamp, json, numeric, date, uuid, text, real } from "drizzle-orm/pg-core";
 import { z } from "zod";
 import { USER_ROLES, TEAM_ROLES, type UserRole, type TeamRole } from './constants';
 
@@ -102,6 +102,19 @@ export const payments = pgTable("payments", {
   lastUpdatedByUser: integer("lastUpdatedByUser").notNull(),
 });
 
+// System usage logs table for analytics and monitoring
+export const usageLogs = pgTable("usage_logs", {
+  id: uuid("id").primaryKey(),
+  userId: integer("user_id"),
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+  action: varchar("action", { length: 255 }).notNull(),
+  endpoint: varchar("endpoint", { length: 255 }).notNull(),
+  statusCode: integer("status_code"),
+  responseTime: real("response_time"),
+  errorMessage: text("error_message"),
+  additionalData: json("additional_data"),
+});
+
 export const insertUserSchema = z.object({
   id: z.number().optional(),
   username: z.string().min(3).max(50),
@@ -184,6 +197,7 @@ export type Player = typeof players.$inferSelect;
 export type Attendance = typeof attendance.$inferSelect;
 export type PracticeNote = typeof practiceNotes.$inferSelect;
 export type Payment = typeof payments.$inferSelect;
+export type UsageLog = typeof usageLogs.$inferSelect;
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type InsertTeam = z.infer<typeof insertTeamSchema>;

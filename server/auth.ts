@@ -8,6 +8,7 @@ import { promisify } from "util";
 import { storage } from "./storage";
 import { sessionStore } from "./storage";
 import { User as SelectUser } from "@shared/schema";
+import { LoggerService } from "./services/logger-service";
 
 declare global {
   namespace Express {
@@ -61,17 +62,21 @@ export function setupAuth(app: Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  // Log middleware to track session state
+  // Enhanced session tracking middleware to ensure user ID is always available
   app.use((req, res, next) => {
     // Only log for API routes
     if (req.path.startsWith('/api')) {
       if (req.user) {
         
-        // Sync passport user ID with session userId
-        if (!req.session.userId && req.user.id) {
+        // Always sync passport user ID with session userId for authenticated users
+        if (req.user.id) {
           req.session.userId = req.user.id;
         }
       } else {
+        // Clear userId from session for unauthenticated users
+        if (req.session) {
+          req.session.userId = undefined;
+        }
       }
     }
     next();
@@ -110,6 +115,12 @@ export function setupAuth(app: Express) {
     try {
       const existingUser = await storage.getUserByUsername(req.body.username);
       if (existingUser) {
+        await LoggerService.logSecurityEvent(
+          null,
+          'REGISTRATION_FAILED',
+          `Registration attempt with existing username: ${req.body.username}`,
+          { ip: req.ip }
+        );
         return res.status(400).send("Username already exists");
       }
 
@@ -124,9 +135,23 @@ export function setupAuth(app: Express) {
         // Explicitly set userId in session
         req.session.userId = user.id;
         
+        // Log successful registration
+        LoggerService.logSecurityEvent(
+          user.id,
+          'REGISTRATION_SUCCESS',
+          `User registered successfully: ${user.username}`,
+          { ip: req.ip }
+        );
+        
         res.status(201).json(user);
       });
     } catch (error) {
+      await LoggerService.logError(
+        null,
+        '/api/register',
+        error instanceof Error ? error.message : 'Unknown registration error',
+        { username: req.body?.username }
+      );
       next(error);
     }
   });
@@ -135,12 +160,23 @@ export function setupAuth(app: Express) {
     // Explicitly set userId in session after login
     if (req.user) {
       req.session.userId = req.user.id;
+      
+      // Log successful login
+      LoggerService.logSecurityEvent(
+        req.user.id,
+        'LOGIN_SUCCESS',
+        `User logged in: ${req.user.username}`,
+        { ip: req.ip }
+      );
     }
     
     res.status(200).json(req.user);
   });
 
   app.post("/api/logout", (req, res, next) => {
+    const userId = req.user?.id;
+    const username = req.user?.username;
+    
     // Clear userId from session
     if (req.session) {
       req.session.userId = undefined;
@@ -148,6 +184,17 @@ export function setupAuth(app: Express) {
     
     req.logout((err) => {
       if (err) return next(err);
+      
+      // Log successful logout
+      if (userId) {
+        LoggerService.logSecurityEvent(
+          userId,
+          'LOGOUT',
+          `User logged out: ${username}`,
+          { ip: req.ip }
+        );
+      }
+      
       res.sendStatus(200);
     });
   });

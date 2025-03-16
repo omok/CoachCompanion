@@ -4,6 +4,8 @@ import express from "express";
 import cors from "cors";
 import { registerRoutes } from "./routes/index";
 import { setupVite, serveStatic, log } from "./vite";
+import { requestLogger } from "./middleware/request-logger";
+import { LoggerService } from "./services/logger-service";
 
 const app = express();
 
@@ -18,6 +20,9 @@ app.use(
 
 // Serve static files from the client/dist directory
 app.use(express.static("client/dist"));
+
+// Add request logger middleware to log all API requests to the database
+app.use(requestLogger());
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -60,6 +65,19 @@ app.use((req, res, next) => {
       res: express.Response,
       next: express.NextFunction,
     ) => {
+      // Log the error to the database
+      LoggerService.logError(
+        req.user?.id,
+        req.path,
+        err,
+        {
+          method: req.method,
+          query: req.query,
+          body: req.body,
+          ip: req.ip
+        }
+      );
+
       console.error("Error:", err);
 
       // Handle CSRF token errors

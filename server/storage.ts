@@ -788,10 +788,16 @@ export class Storage implements IStorage {
    */
   async updateTeam(id: number, updates: Partial<InsertTeam>, context: StorageContext): Promise<Team> {
     try {
+      // Create a new object with all props from updates
+      // This ensures we don't lose any fields that aren't explicitly handled below
+      const baseUpdates = { ...updates };
+      
+      // Add explicitly handled fields 
       const sanitizedUpdates = {
-        ...this.addAuditField(updates, context),
+        ...this.addAuditField(baseUpdates, context),
         seasonStartDate: updates.seasonStartDate ? dateToISOString(new Date(updates.seasonStartDate)) : null,
         seasonEndDate: updates.seasonEndDate ? dateToISOString(new Date(updates.seasonEndDate)) : null,
+        feeType: updates.feeType || null, 
         teamFee: updates.teamFee ? updates.teamFee.toString() : null
       };
 

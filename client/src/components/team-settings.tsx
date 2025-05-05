@@ -23,7 +23,8 @@ type TeamSettings = {
   description: string;    // Optional
   seasonStartDate: string; // Optional
   seasonEndDate: string;  // Optional
-  teamFee: string;        // Optional
+  feeType: string;        // 'fixed' or 'prepaid'
+  teamFee: string;        // Optional, only relevant for fixedFee
 };
 
 // For processed form data that can have nulls
@@ -32,6 +33,7 @@ interface ProcessedTeamSettings {
   description: string | null;
   seasonStartDate: string | null;
   seasonEndDate: string | null;
+  feeType: string;
   teamFee: string | null;
 }
 
@@ -127,15 +129,25 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
   });
 
   // Setup the form with validation
-  const { register, handleSubmit, formState: { errors }, reset } = useForm<TeamSettings>({
+  const { 
+    register, 
+    handleSubmit, 
+    setValue, 
+    watch,
+    formState: { errors } 
+  } = useForm<TeamSettings>({
     defaultValues: {
       name: '',
       description: '',
       seasonStartDate: '',
       seasonEndDate: '',
-      teamFee: '',
-    },
+      feeType: 'fixed',
+      teamFee: ''
+    }
   });
+
+  // Watch for fee type changes
+  const feeType = watch('feeType');
 
   // Update form values when team data loads - must be after form setup
   useEffect(() => {
@@ -185,15 +197,14 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
         }
       }
       
-      reset({
-        name: team.name || '',
-        description: team.description || '',
-        seasonStartDate: startDate,
-        seasonEndDate: endDate,
-        teamFee: team.teamFee?.toString() || '',
-      });
+      setValue('name', team.name || '');
+      setValue('description', team.description || '');
+      setValue('seasonStartDate', startDate);
+      setValue('seasonEndDate', endDate);
+      setValue('feeType', team.feeType || 'fixed');
+      setValue('teamFee', team.teamFee || '');
     }
-  }, [team, reset]);
+  }, [team, setValue]);
 
   // Update team settings mutation - must be called unconditionally
   const updateTeamMutation = useMutation({
@@ -314,12 +325,11 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
       name: data.name.trim(),
       
       // For optional fields, convert empty strings to null
-      description: data.description.trim() || null,
+      description: data.description ? data.description.trim() : null,
       seasonStartDate,
       seasonEndDate,
-      
-      // Special handling for numeric field
-      teamFee: data.teamFee.trim() === '' ? null : data.teamFee,
+      feeType: data.feeType || 'fixed',
+      teamFee: data.teamFee ? data.teamFee.toString() : null
     };
   };
 
@@ -340,6 +350,13 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
       
       // Process the data to handle null values
       const processedData = processFormData(data);
+      
+      // Add debug logging
+      console.log('[TeamSettings] Submitting data with feeType:', {
+        originalFeeType: data.feeType,
+        processedFeeType: processedData.feeType,
+        fullData: processedData
+      });
       
       // Submit the processed data
       updateTeamMutation.mutate(processedData);
@@ -516,22 +533,50 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="teamFee">Team Fee ($)</Label>
-                <Input 
-                  id="teamFee" 
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  {...register('teamFee', {
-                    validate: value => value === '' || !isNaN(Number(value)) || "Must be a valid number"
-                  })} 
-                  placeholder="Leave empty for no fee"
-                />
-                {errors.teamFee && <p className="text-red-500 text-sm">{errors.teamFee.message}</p>}
+                <Label htmlFor="feeType">Fee Structure</Label>
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      id="feeTypeFixed"
+                      value="fixed"
+                      {...register('feeType')}
+                      className="h-4 w-4"
+                    />
+                    <Label htmlFor="feeTypeFixed" className="cursor-pointer">Fixed Fee</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      id="feeTypePrepaid"
+                      value="prepaid"
+                      {...register('feeType')}
+                      className="h-4 w-4"
+                    />
+                    <Label htmlFor="feeTypePrepaid" className="cursor-pointer">Prepaid Lessons</Label>
+                  </div>
+                </div>
               </div>
               
+              {feeType === 'fixed' && (
+                <div className="space-y-2">
+                  <Label htmlFor="teamFee">Team Fee ($)</Label>
+                  <Input 
+                    id="teamFee" 
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    {...register('teamFee', {
+                      validate: value => value === '' || !isNaN(Number(value)) || "Must be a valid number"
+                    })} 
+                    placeholder="Leave empty for no fee"
+                  />
+                  {errors.teamFee && <p className="text-red-500 text-sm">{errors.teamFee.message}</p>}
+                </div>
+              )}
+              
               <div className="flex justify-end space-x-2 pt-4">
-                             <Button 
+                <Button 
                   type="submit" 
                   disabled={updateTeamMutation.isPending}
                 >

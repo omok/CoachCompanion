@@ -195,8 +195,19 @@ export function createTeamsRouter(storage: IStorage): Router {
         return res.status(400).json({ error: 'Invalid team ID' });
       }
 
-      const { name, description, seasonStartDate, seasonEndDate, teamFee } = req.body;
-      console.log(`[Teams] PUT team ${teamId} - Update data:`, { name, description, seasonStartDate, seasonEndDate, teamFee });
+      // Inspect the raw request body
+      console.log('[Teams] PUT - Raw request body:', JSON.stringify(req.body, null, 2));
+
+      const { name, description, seasonStartDate, seasonEndDate, feeType, teamFee } = req.body;
+      
+      // Add detailed debug logging for feeType
+      console.log(`[Teams] PUT team ${teamId} - feeType received:`, {
+        feeType,
+        typeOfFeeType: typeof feeType,
+        rawBody: req.body
+      });
+      
+      console.log(`[Teams] PUT team ${teamId} - Update data:`, { name, description, seasonStartDate, seasonEndDate, feeType, teamFee });
       
       // Process fields that need special handling
       
@@ -217,15 +228,21 @@ export function createTeamsRouter(storage: IStorage): Router {
         processedEndDate = null;
       }
       
+      // Get current team to compare changes
+      const currentTeam = await storage.getTeam(teamId);
+      console.log(`[Teams] Current team data:`, JSON.stringify(currentTeam, null, 2));
+
       const updatedTeam = await storage.updateTeam(teamId, {
         name,
         description,
         seasonStartDate: processedStartDate,
         seasonEndDate: processedEndDate,
+        feeType: feeType || 'fixed',
         teamFee: processedTeamFee
       }, { currentUserId: req.user.id });
 
-      console.log(`[Teams] PUT team ${teamId} - Team updated successfully`);
+      console.log(`[Teams] PUT team ${teamId} - Team updated successfully, feeType:`, updatedTeam.feeType);
+      console.log(`[Teams] Updated team data:`, JSON.stringify(updatedTeam, null, 2));
       res.json(updatedTeam);
     } catch (error) {
       console.error(`[Teams] Error updating team ${req.params.teamId} settings:`, error);

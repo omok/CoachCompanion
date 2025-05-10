@@ -1,6 +1,6 @@
-import { useState, useEffect, useContext, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { AuthContext } from '../contexts/AuthContext';
+import { useAuth } from './use-auth';
 import { apiRequest } from '../lib/queryClient';
 
 /**
@@ -19,16 +19,14 @@ export interface TeamMembership {
  * Hook for accessing team membership data
  */
 export function useTeamMember() {
-  // Safely access AuthContext - handle potential null value
-  const authContext = useContext(AuthContext);
-  const user = authContext?.user || null;
-  const userLoading = authContext?.isLoading || false;
-  
+  // Get user from the auth hook
+  const { user, isLoading: userLoading } = useAuth();
+
   const [requestLogs, setRequestLogs] = useState<any[]>([]);
   const logRef = useRef<any[]>([]);
 
   // Use React Query for team memberships
-  const { 
+  const {
     data: teamMembership = [],
     isLoading,
     error,
@@ -41,18 +39,18 @@ export function useTeamMember() {
       }
 
       try {
-        
-        const response = await fetch('/api/user/teams', { 
+
+        const response = await fetch('/api/user/teams', {
           credentials: 'include'
         });
-        
+
         if (!response.ok) {
           const errorText = await response.text();
           throw new Error(`Failed to fetch team memberships: ${response.status} ${response.statusText} - ${errorText}`);
         }
-        
+
         const data = await response.json();
-        
+
         return data;
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to load team memberships';
@@ -80,4 +78,4 @@ export function useTeamMember() {
     refetch,
     requestLogs: logRef.current // Expose logs
   };
-} 
+}

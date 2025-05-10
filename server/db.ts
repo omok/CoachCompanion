@@ -18,7 +18,9 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-console.log("Using DATABASE_URL:", process.env.DATABASE_URL);
+// Log a masked version of the database URL for security
+const maskedDbUrl = process.env.DATABASE_URL?.replace(/:[^:]*@/, ':****@');
+console.log("Using DATABASE_URL:", maskedDbUrl);
 
 export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 export const db = drizzle({ client: pool, schema });

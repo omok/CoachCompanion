@@ -11,7 +11,6 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { AuthContext } from "../contexts/AuthContext";
 import { useTeamMember } from '../hooks/useTeamMember';
 import { apiRequest } from '../lib/queryClient';
 import { useAuth } from '../hooks/use-auth';
@@ -59,8 +58,8 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
 
   // IMPORTANT: All hooks must be called unconditionally before any conditional logic
   // Fetch team data - call useQuery unconditionally - don't disable based on permissions
-  const { 
-    data: team, 
+  const {
+    data: team,
     isLoading: isTeamLoading,
     error: teamError,
     refetch: refetchTeam
@@ -71,27 +70,27 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
         const response = await fetch(`/api/teams/${teamId}`, {
           credentials: 'include' // Ensure cookies are sent
         });
-        
+
         // Check content type to detect HTML responses
         const contentType = response.headers.get('content-type') || '';
         const isJson = contentType.includes('application/json');
-        
+
         if (!response.ok) {
           // Try to safely get response text - could be HTML or JSON
           const responseText = await response.text();
-          
+
           // Log the full response for debugging
           console.error(`[TeamSettings] Error fetching team ${teamId}:`, {
             status: response.status,
             contentType,
             responseText: responseText.substring(0, 200) + '...' // Show first 200 chars
           });
-          
+
           // If it's HTML, provide a more helpful error
           if (responseText.trim().startsWith('<!DOCTYPE') || responseText.trim().startsWith('<html')) {
             throw new Error(`Server returned HTML instead of JSON (${response.status}). You may need to log in again.`);
           }
-          
+
           // Try to parse as JSON if it looks like JSON
           let errorMessage = `Failed to fetch team: ${response.status}`;
           if (isJson || responseText.trim().startsWith('{')) {
@@ -106,17 +105,17 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
             // Use plain text error
             errorMessage = `${errorMessage} - ${responseText.substring(0, 100)}`;
           }
-          
+
           throw new Error(errorMessage);
         }
-        
+
         // Check if response is actually JSON
         if (!isJson) {
           const text = await response.text();
           console.error('[TeamSettings] Received non-JSON response:', text.substring(0, 200));
           throw new Error('Server returned non-JSON response. You may need to log in again.');
         }
-        
+
         const data = await response.json();
         return data;
       } catch (error) {
@@ -129,12 +128,12 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
   });
 
   // Setup the form with validation
-  const { 
-    register, 
-    handleSubmit, 
-    setValue, 
+  const {
+    register,
+    handleSubmit,
+    setValue,
     watch,
-    formState: { errors } 
+    formState: { errors }
   } = useForm<TeamSettings>({
     defaultValues: {
       name: '',
@@ -152,12 +151,12 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
   // Update form values when team data loads - must be after form setup
   useEffect(() => {
     if (team) {
-      
+
       // For date fields, just set the YYYY-MM-DD strings directly
       // If they're already in that format, no need to parse and reformat
       let startDate = '';
       let endDate = '';
-      
+
       if (team.seasonStartDate) {
         // The date should already be in YYYY-MM-DD format from the server
         // Just use it directly to avoid timezone issues
@@ -177,7 +176,7 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
           }
         }
       }
-      
+
       if (team.seasonEndDate) {
         // Same approach for end date
         if (typeof team.seasonEndDate === 'string') {
@@ -196,7 +195,7 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
           }
         }
       }
-      
+
       setValue('name', team.name || '');
       setValue('description', team.description || '');
       setValue('seasonStartDate', startDate);
@@ -209,12 +208,12 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
   // Update team settings mutation - must be called unconditionally
   const updateTeamMutation = useMutation({
     mutationFn: async (data: ProcessedTeamSettings) => {
-      
+
       if (!canManageTeamSettings(teamId)) {
         console.error(`[TeamSettings] Permission denied for user ${user?.id} to update team ${teamId}`);
         throw new Error('Permission denied to update team settings');
       }
-      
+
       try {
         const response = await fetch(`/api/teams/${teamId}`, {
           method: 'PUT',
@@ -222,11 +221,11 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
           credentials: 'include', // Ensure cookies are sent
           body: JSON.stringify(data),
         });
-        
-        
+
+
         // Get response as text first
         const responseText = await response.text();
-        
+
         // Try to parse as JSON if it looks like JSON
         let responseData;
         if (responseText.trim().startsWith('{') || responseText.trim().startsWith('[')) {
@@ -240,12 +239,12 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
           console.error('[TeamSettings] Non-JSON response:', responseText.substring(0, 100));
           throw new Error(`Non-JSON response: ${responseText.substring(0, 100)}`);
         }
-        
+
         if (!response.ok) {
           console.error('[TeamSettings] Error updating team:', responseData);
           throw new Error(responseData.error || 'Failed to update team settings');
         }
-        
+
         return responseData;
       } catch (error) {
         console.error('[TeamSettings] Error in mutation:', error);
@@ -270,7 +269,7 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
     const refreshData = async () => {
       if (initialLoadAttempted.current) return;
       initialLoadAttempted.current = true;
-      
+
       try {
         await refreshUser();
         await refetchTeamMembership();
@@ -279,7 +278,7 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
         console.error(`[TeamSettings] Error refreshing data:`, err);
       }
     };
-    
+
     refreshData();
   }, [teamId, refreshUser, refetchTeamMembership, refetchTeam]);
 
@@ -289,16 +288,16 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
       // First check auth state on server
       const authCheckResponse = await fetch('/api/debug/auth', { credentials: 'include' });
       const authCheckData = await authCheckResponse.json();
-      
+
       // Then force refresh the user data in React Query cache
       await refreshUser();
-      
+
       // Then force refresh team memberships
       await refetchTeamMembership();
-      
+
       // Also refresh team data
       await refetchTeam();
-      
+
       setSuccess('Auth data refreshed. Check console for details.');
     } catch (err) {
       setError('Failed to refresh auth data');
@@ -313,17 +312,17 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
 
   // Helper to process form data before submission
   const processFormData = (data: TeamSettings): ProcessedTeamSettings => {
-    
+
     // For date fields, just pass through the YYYY-MM-DD strings directly
     // Date inputs in HTML already use ISO format (YYYY-MM-DD)
     // Don't use Date objects to avoid timezone issues
     const seasonStartDate = data.seasonStartDate ? data.seasonStartDate.trim() : null;
     const seasonEndDate = data.seasonEndDate ? data.seasonEndDate.trim() : null;
-    
+
     return {
       // Always include required fields
       name: data.name.trim(),
-      
+
       // For optional fields, convert empty strings to null
       description: data.description ? data.description.trim() : null,
       seasonStartDate,
@@ -341,23 +340,23 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
         setError('Team name is required');
         return;
       }
-      
+
       // Validate teamFee - must be a valid number or empty string
       if (data.teamFee !== '' && isNaN(Number(data.teamFee))) {
         setError('Team fee must be a valid number');
         return;
       }
-      
+
       // Process the data to handle null values
       const processedData = processFormData(data);
-      
+
       // Add debug logging
       console.log('[TeamSettings] Submitting data with feeType:', {
         originalFeeType: data.feeType,
         processedFeeType: processedData.feeType,
         fullData: processedData
       });
-      
+
       // Submit the processed data
       updateTeamMutation.mutate(processedData);
     } catch (err) {
@@ -371,33 +370,33 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
     setIsFetching(true);
     setDirectFetchError(null);
     try {
-      
+
       // First test auth endpoint to confirm we're logged in
       const authResponse = await fetch('/api/debug/auth', { credentials: 'include' });
       const authData = await authResponse.json();
-      
+
       // Then test team memberships endpoint
       const membershipsResponse = await fetch('/api/user/teams', { credentials: 'include' });
       const membershipsData = await membershipsResponse.json();
-      
+
       // Finally test the team endpoint directly
-      const response = await fetch(`/api/teams/${teamId}`, { 
+      const response = await fetch(`/api/teams/${teamId}`, {
         credentials: 'include',
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json'
         }
       });
-      
+
       // Log headers safely using forEach instead of entries()
       const headers: Record<string, string> = {};
       response.headers.forEach((value, key) => {
         headers[key] = value;
       });
-      
+
       // Get the raw response text first
       const responseText = await response.text();
-      
+
       // Try to parse as JSON if it looks like JSON
       let data;
       if (responseText.trim().startsWith('{') || responseText.trim().startsWith('[')) {
@@ -421,7 +420,7 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
 
   // NOW we can use conditional rendering - AFTER all hooks have been called
   const hasPermission = canManageTeamSettings(teamId);
-  
+
   // If no permission, render permission denied card
   if (!hasPermission) {
     return (
@@ -477,14 +476,14 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-        
+
         {success && (
           <Alert className="mb-4">
             <AlertTitle>Success</AlertTitle>
             <AlertDescription>{success}</AlertDescription>
           </Alert>
         )}
-        
+
         <div className="space-y-8">
           {/* General Team Settings Section */}
           <div>
@@ -492,46 +491,46 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Team Name *</Label>
-                <Input 
-                  id="name" 
-                  {...register('name', { 
+                <Input
+                  id="name"
+                  {...register('name', {
                     required: "Team name is required",
                     minLength: { value: 2, message: "Name must be at least 2 characters" }
-                  })} 
+                  })}
                   aria-invalid={errors.name ? "true" : "false"}
                 />
                 {errors.name && <p className="text-red-500 text-sm">{errors.name.message}</p>}
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="description">Team Description</Label>
-                <Textarea 
-                  id="description" 
-                  {...register('description')} 
-                  placeholder="Optional description" 
+                <Textarea
+                  id="description"
+                  {...register('description')}
+                  placeholder="Optional description"
                 />
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="seasonStartDate">Season Start Date</Label>
-                  <Input 
-                    id="seasonStartDate" 
-                    type="date" 
-                    {...register('seasonStartDate')} 
+                  <Input
+                    id="seasonStartDate"
+                    type="date"
+                    {...register('seasonStartDate')}
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="seasonEndDate">Season End Date</Label>
-                  <Input 
-                    id="seasonEndDate" 
-                    type="date" 
-                    {...register('seasonEndDate')} 
+                  <Input
+                    id="seasonEndDate"
+                    type="date"
+                    {...register('seasonEndDate')}
                   />
                 </div>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="feeType">Fee Structure</Label>
                 <div className="flex items-center space-x-4">
@@ -557,27 +556,27 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
                   </div>
                 </div>
               </div>
-              
+
               {feeType === 'fixed' && (
                 <div className="space-y-2">
                   <Label htmlFor="teamFee">Team Fee ($)</Label>
-                  <Input 
-                    id="teamFee" 
+                  <Input
+                    id="teamFee"
                     type="number"
                     step="0.01"
                     min="0"
                     {...register('teamFee', {
                       validate: value => value === '' || !isNaN(Number(value)) || "Must be a valid number"
-                    })} 
+                    })}
                     placeholder="Leave empty for no fee"
                   />
                   {errors.teamFee && <p className="text-red-500 text-sm">{errors.teamFee.message}</p>}
                 </div>
               )}
-              
+
               <div className="flex justify-end space-x-2 pt-4">
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   disabled={updateTeamMutation.isPending}
                 >
                   {updateTeamMutation.isPending ? 'Saving...' : 'Save Settings'}

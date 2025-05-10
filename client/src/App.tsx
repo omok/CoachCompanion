@@ -2,8 +2,7 @@ import { Switch, Route, useParams } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
-import { AuthProvider as NewAuthProvider } from "./hooks/use-auth";
-import { AuthProvider as LegacyAuthProvider } from "./contexts/AuthContext";
+import { AuthProvider } from "./hooks/use-auth";
 import { ProtectedRoute } from "./lib/protected-route";
 import { PlayerProvider } from "./components/player-context";
 import { PlayerDetailsModal } from "./components/player-details-modal";
@@ -34,20 +33,15 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <NewAuthProvider>
-        <LegacyAuthProvider>
-          <PlayerProvider>
-            <Router />
-            <PlayerDetailsModal />
-            <Toaster />
-          </PlayerProvider>
-        </LegacyAuthProvider>
-      </NewAuthProvider>
+      <AuthProvider>
+        <PlayerProvider>
+          <Router />
+          <PlayerDetailsModal />
+          <Toaster />
+        </PlayerProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
-
-// Display the original route for now to see what's implemented
-console.log("Team Settings route:", "/teams/:teamId/settings");
 
 export default App;

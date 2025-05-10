@@ -15,6 +15,13 @@
       "when": 1740883230839,
       "tag": "0001_lethal_masque",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1740883230840,
+      "tag": "0002_team_ownership",
+      "breakpoints": true
     }
   ]
 }

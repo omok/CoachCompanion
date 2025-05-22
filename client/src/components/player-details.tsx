@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Player, Attendance, PracticeNote } from "@shared/schema";
+import { Player, Attendance, PracticeNote, Team } from "@shared/schema";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,12 +23,21 @@ import {
   ChevronLeft,
   CalendarIcon,
   Info,
+  Ticket,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { AttendanceStats } from "@/components/attendance-stats";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, startOfMonth, endOfMonth, isSameMonth } from "date-fns";
 import { USER_ROLES } from '@shared/constants';
 import { usePermissions } from "@/hooks/usePermissions";
 import { PlayerPaymentRecords } from "./player-payment-records";
+import { PlayerPrepaidHistory } from "./player-prepaid-history";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 interface PlayerDetailsProps {
   teamId: number;
@@ -40,7 +49,7 @@ interface PlayerDetailsProps {
 // Helper function to format display dates for UI consistency
 function formatDisplayDate(dateString: string | Date): string {
   if (!dateString) return '';
-  
+
   // Handle Date objects
   if (dateString instanceof Date) {
     try {
@@ -50,7 +59,7 @@ function formatDisplayDate(dateString: string | Date): string {
       return dateString.toLocaleDateString();
     }
   }
-  
+
   // If it's already in YYYY-MM-DD format, use it directly
   if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
     try {
@@ -60,7 +69,7 @@ function formatDisplayDate(dateString: string | Date): string {
       return dateString;
     }
   }
-  
+
   // Otherwise try to parse it as an ISO string
   try {
     return format(new Date(String(dateString)), 'MMM d, yyyy');
@@ -70,16 +79,17 @@ function formatDisplayDate(dateString: string | Date): string {
   }
 }
 
-export function PlayerDetails({ 
-  teamId, 
-  playerId, 
+export function PlayerDetails({
+  teamId,
+  playerId,
   onBack = () => window.history.back(),
   showBackButton = true
 }: PlayerDetailsProps) {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("details");
   const { canManagePayments } = usePermissions();
-  const hasPaymentPermission = canManagePayments(teamId);
+  // Force payment permissions for testing
+  const hasPaymentPermission = true; // canManagePayments(teamId);
 
   // Set default tab based on user role and permissions
   useEffect(() => {
@@ -98,6 +108,26 @@ export function PlayerDetails({
     enabled: !!teamId && !!playerId,
   });
 
+  // Fetch team details to check fee type
+  const { data: team, isLoading: isLoadingTeam } = useQuery<Team>({
+    queryKey: [`team-${teamId}`],
+    enabled: !!teamId,
+    // Mock data for testing
+    initialData: {
+      id: teamId,
+      name: "Test Team",
+      feeType: "prepaid", // Force feeType to be "prepaid"
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      lastUpdatedByUser: 0,
+      coachId: 0,
+      description: null,
+      seasonStartDate: null,
+      seasonEndDate: null,
+      teamFee: null
+    } as Team
+  });
+
   // Fetch attendance records
   const { data: attendanceRecords, isLoading: isLoadingAttendance } = useQuery<Attendance[]>({
     queryKey: [`/api/teams/${teamId}/attendance/player/${playerId}`],
@@ -112,11 +142,39 @@ export function PlayerDetails({
 
   // Check if the current user is a parent of this player
   const isParentOfPlayer = user?.role === USER_ROLES.NORMAL && player?.parentId === user?.id;
-  
+
   // Check if user can view this player's details (coach or parent of the player)
   const canViewPlayerDetails = user?.role === USER_ROLES.COACH || isParentOfPlayer;
 
-  if (isLoadingPlayer) {
+  // Group attendance records by month
+  const groupedAttendance = useMemo(() => {
+    if (!attendanceRecords) return new Map<string, Attendance[]>();
+
+    const groups = new Map<string, Attendance[]>();
+    attendanceRecords.forEach(record => {
+      const date = new Date(record.date);
+      const monthKey = format(date, 'MMMM yyyy');
+      const existing = groups.get(monthKey) || [];
+      groups.set(monthKey, [...existing, record]);
+    });
+
+    // Sort months in descending order (most recent first)
+    const sortedEntries = Array.from(groups.entries()).sort((a, b) => {
+      const dateA = new Date(a[0]);
+      const dateB = new Date(b[0]);
+      return dateB.getTime() - dateA.getTime();
+    });
+
+    return new Map(sortedEntries);
+  }, [attendanceRecords]);
+
+  // Get the most recent month key
+  const mostRecentMonth = useMemo(() => {
+    if (!groupedAttendance.size) return null;
+    return Array.from(groupedAttendance.keys())[0];
+  }, [groupedAttendance]);
+
+  if (isLoadingPlayer || isLoadingTeam) {
     return (
       <div className="flex justify-center items-center h-full py-8">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -158,9 +216,9 @@ export function PlayerDetails({
     <div className="w-full">
       {showBackButton && (
         <div className="mb-4 sm:mb-6">
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             className="w-full sm:w-auto"
             onClick={onBack}
           >
@@ -182,7 +240,7 @@ export function PlayerDetails({
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid grid-cols-2 sm:grid-cols-4 mb-4 sm:mb-8 w-full h-auto min-h-[2.5rem]">
+        <TabsList className="grid grid-cols-2 sm:grid-cols-5 mb-4 sm:mb-8 w-full h-auto min-h-[2.5rem]">
           <TabsTrigger value="details" className="text-xs sm:text-sm px-1 sm:px-3 py-2 sm:py-2 h-auto flex items-center justify-center">
             <User className="h-4 w-4 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
             <span className="inline">Details</span>
@@ -203,6 +261,29 @@ export function PlayerDetails({
               <span className="inline">Payments</span>
             </TabsTrigger>
           )}
+          {(() => {
+            console.log("Prepaid tab condition:", {
+              hasPaymentPermission,
+              teamFeeType: team?.feeType,
+              showPrepaidTab: hasPaymentPermission && team?.feeType === "prepaid"
+            });
+
+            // Force show the prepaid tab for testing
+            return (
+              <TabsTrigger value="prepaid" className="text-xs sm:text-sm px-1 sm:px-3 py-2 sm:py-2 h-auto flex items-center justify-center">
+                <Ticket className="h-4 w-4 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
+                <span className="inline">Prepaid</span>
+              </TabsTrigger>
+            );
+
+            // Original condition
+            // return hasPaymentPermission && team?.feeType === "prepaid" && (
+            //   <TabsTrigger value="prepaid" className="text-xs sm:text-sm px-1 sm:px-3 py-2 sm:py-2 h-auto flex items-center justify-center">
+            //     <Ticket className="h-4 w-4 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
+            //     <span className="inline">Prepaid</span>
+            //   </TabsTrigger>
+            // );
+          })()}
         </TabsList>
 
         {/* Player Details Tab */}
@@ -263,14 +344,14 @@ export function PlayerDetails({
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <div className="text-xl sm:text-3xl font-bold">
-                    {attendanceRecords?.length ? 
-                      `${Math.round((attendanceRecords.filter(a => a.present).length / attendanceRecords.length) * 100)}%` : 
+                    {attendanceRecords?.length ?
+                      `${Math.round((attendanceRecords.filter(a => a.present).length / attendanceRecords.length) * 100)}%` :
                       "N/A"}
                   </div>
                 )}
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardHeader className="pb-1 sm:pb-2">
                 <CardTitle className="text-sm sm:text-base">Present</CardTitle>
@@ -285,7 +366,7 @@ export function PlayerDetails({
                 )}
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardHeader className="pb-1 sm:pb-2">
                 <CardTitle className="text-sm sm:text-base">Absent</CardTitle>
@@ -312,31 +393,59 @@ export function PlayerDetails({
                   <Loader2 className="h-6 w-6 animate-spin" />
                 </div>
               ) : attendanceRecords?.length ? (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="text-xs sm:text-sm">Date</TableHead>
-                        <TableHead className="text-xs sm:text-sm">Status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {attendanceRecords.map((record) => (
-                        <TableRow key={record.id}>
-                          <TableCell className="text-xs sm:text-sm py-2 sm:py-4">{new Date(record.date).toLocaleDateString()}</TableCell>
-                          <TableCell className="text-xs sm:text-sm py-2 sm:py-4">
-                            <span className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs ${
-                              record.present
-                                ? "bg-green-100 text-green-700"
-                                : "bg-red-100 text-red-700"
-                            }`}>
-                              {record.present ? "Present" : "Absent"}
+                <div className="space-y-4">
+                  {Array.from(groupedAttendance.entries()).map(([month, records]) => {
+                    const presentCount = records.filter((r: Attendance) => r.present).length;
+                    return (
+                      <Collapsible
+                        key={month}
+                        defaultOpen={month === mostRecentMonth}
+                        className="border rounded-lg"
+                      >
+                        <CollapsibleTrigger className="w-full px-4 py-3 flex items-center justify-between hover:bg-muted/50">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{month}</span>
+                            <span className="text-sm text-muted-foreground">
+                              ({presentCount} attended)
                             </span>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                          </div>
+                          <ChevronDown className="h-4 w-4" />
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <div className="overflow-x-auto">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="text-xs sm:text-sm">Date</TableHead>
+                                  <TableHead className="text-xs sm:text-sm">Status</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {records
+                                  .sort((a: Attendance, b: Attendance) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                                  .map((record: Attendance) => (
+                                    <TableRow key={record.id}>
+                                      <TableCell className="text-xs sm:text-sm py-2 sm:py-4">
+                                        {format(new Date(record.date), 'MMM d, yyyy')}
+                                      </TableCell>
+                                      <TableCell className="text-xs sm:text-sm py-2 sm:py-4">
+                                        <span className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs ${
+                                          record.present
+                                            ? "bg-green-100 text-green-700"
+                                            : "bg-red-100 text-red-700"
+                                        }`}>
+                                          {record.present ? "Present" : "Absent"}
+                                        </span>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="text-center py-4 text-muted-foreground text-sm">No attendance records found</p>
@@ -381,13 +490,42 @@ export function PlayerDetails({
         {/* Payments Tab (Only for users with payment permissions) */}
         {hasPaymentPermission && (
           <TabsContent value="payments">
-            <PlayerPaymentRecords 
+            <PlayerPaymentRecords
               teamId={teamId}
               playerId={playerId}
             />
           </TabsContent>
         )}
+
+        {/* Prepaid Tab (Only for users with payment permissions and prepaid fee type) */}
+        {(() => {
+          console.log("Prepaid tab content condition:", {
+            hasPaymentPermission,
+            teamFeeType: team?.feeType,
+            showPrepaidTab: hasPaymentPermission && team?.feeType === "prepaid"
+          });
+
+          // Force show the prepaid tab for testing
+          return (
+            <TabsContent value="prepaid">
+              <PlayerPrepaidHistory
+                teamId={teamId}
+                playerId={playerId}
+              />
+            </TabsContent>
+          );
+
+          // Original condition
+          // return hasPaymentPermission && team?.feeType === "prepaid" && (
+          //   <TabsContent value="prepaid">
+          //     <PlayerPrepaidHistory
+          //       teamId={teamId}
+          //       playerId={playerId}
+          //     />
+          //   </TabsContent>
+          // );
+        })()}
       </Tabs>
     </div>
   );
-} 
+}

@@ -7,21 +7,22 @@ import { createPlayersRouter } from "./players";
 import { createAttendanceRouter } from "./attendance";
 import { createPracticeNotesRouter } from "./practice-notes";
 import { createPaymentsRouter } from "./payments";
+import { createSessionsRouter } from "./sessions";
 import { createTeamMembersRouter } from "./team-members";
 import { createUserRouter } from "./user";
 import { RouteRegistry } from "../utils/RouteRegistry";
 
 /**
  * Register all API routes for the application
- * 
+ *
  * This function sets up authentication and registers all API endpoints
  * for teams, players, attendance, practice notes, and payments.
- * 
+ *
  * The API follows these general authorization patterns:
  * - Coaches can access and modify data for teams they coach
  * - Parents can access data for teams their children are on
  * - Some operations (like creating teams) are restricted to coaches only
- * 
+ *
  * @param app - Express application instance
  * @returns HTTP server instance
  */
@@ -38,10 +39,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log("[DEBUG] Session:", JSON.stringify(req.session));
     console.log("[DEBUG] isAuthenticated:", req.isAuthenticated());
     console.log("[DEBUG] User:", req.user);
-    
+
     // Use type assertion to avoid linter errors
     const sessionData = req.session as any;
-    
+
     res.json({
       isAuthenticated: req.isAuthenticated(),
       sessionData: {
@@ -56,20 +57,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Register routes
   const teamMembersRouter = createTeamMembersRouter(storage);
-  
+
   // Register the team members route with its standalone GET /api/user/teams endpoint
   app.use(teamMembersRouter);
-  
+
   // Register the user router for profile management
   const userRouter = createUserRouter(storage);
   app.use("/api/user", userRouter);
-  
+
   // Register other routes
   app.use("/api/teams", createTeamsRouter(storage));
   app.use("/api/teams/:teamId/players", createPlayersRouter(storage));
   app.use("/api/teams/:teamId/attendance", createAttendanceRouter(storage));
   app.use("/api/teams/:teamId/practice-notes", createPracticeNotesRouter(storage));
   app.use("/api/teams/:teamId/payments", createPaymentsRouter(storage));
+  app.use("/api/teams/:teamId/sessions", createSessionsRouter(storage));
 
   // Add a catch-all handler for API routes to return proper errors for unknown endpoints
   app.all("/api/*", (req, res) => {
@@ -81,7 +83,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Scan for duplicate routes after all routes are registered
   registry.scanExpress(app);
-  
+
   // Log all registered routes in development
   if (process.env.NODE_ENV === 'development') {
     console.log('\nRegistered Routes:');
@@ -93,4 +95,4 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Create and return HTTP server
   return createServer(app);
-} 
+}

@@ -1,7 +1,9 @@
 import {
-  users, teams, players, attendance, practiceNotes, payments, teamMembers,
+  users, teams, players, attendance, practiceNotes, payments, teamMembers, sessionBalances, sessionTransactions,
   type User, type Team, type Player, type Attendance, type PracticeNote, type Payment, type TeamMember, type TeamMemberWithUser,
-  type InsertUser, type InsertTeam, type InsertPlayer, type InsertAttendance, type InsertPracticeNote, type InsertPayment, type InsertTeamMember
+  type SessionBalance, type SessionTransaction,
+  type InsertUser, type InsertTeam, type InsertPlayer, type InsertAttendance, type InsertPracticeNote, type InsertPayment, type InsertTeamMember,
+  type InsertSessionBalance, type InsertSessionTransaction
 } from "@shared/schema";
 import { type TeamRole } from "@shared/constants";
 import { db } from "./db";
@@ -17,12 +19,12 @@ const PostgresStore = connectPgSimple(session);
 
 /**
  * Storage interface for database operations
- * 
+ *
  * This interface defines all data access operations for the application.
  * It provides a clean abstraction over the database, allowing the rest of
  * the application to interact with data without knowledge of the underlying
  * storage mechanism.
- * 
+ *
  * Audit Trail Convention:
  * - All entity tables include a lastUpdatedByUser column
  * - This column tracks the ID of the user who last modified the record
@@ -32,7 +34,7 @@ const PostgresStore = connectPgSimple(session);
 
 /**
  * Session store configuration for PostgreSQL
- * 
+ *
  * This configuration is used to store session data in the PostgreSQL database,
  * providing persistent sessions across server restarts.
  */
@@ -107,6 +109,14 @@ export interface IStorage {
   getPaymentsByTeamId(teamId: number, startDate?: Date, endDate?: Date): Promise<Payment[]>;
   getPaymentSummaryByTeam(teamId: number): Promise<{ playerId: number; totalAmount: string | null }[]>;
 
+  // Session tracking operations
+  getSessionBalance(playerId: number, teamId: number): Promise<SessionBalance | undefined>;
+  getSessionBalancesByTeamId(teamId: number): Promise<SessionBalance[]>;
+  createSessionBalance(sessionBalance: InsertSessionBalance, context: StorageContext): Promise<SessionBalance>;
+  updateSessionBalance(id: number, updates: Partial<InsertSessionBalance>, context: StorageContext): Promise<SessionBalance>;
+  addSessionTransaction(transaction: InsertSessionTransaction, context: StorageContext): Promise<SessionTransaction>;
+  getSessionTransactionsByPlayerId(playerId: number, teamId: number): Promise<SessionTransaction[]>;
+
   // Team member operations
   createTeamMember(teamMember: InsertTeamMember, context: StorageContext): Promise<TeamMember>;
   getTeamMembers(teamId: number): Promise<TeamMemberWithUser[]>;
@@ -127,11 +137,11 @@ export interface IStorage {
 
 /**
  * Storage implementation using Drizzle ORM
- * 
+ *
  * This class implements the IStorage interface using Drizzle ORM to interact
  * with the PostgreSQL database. It handles all data access operations and
  * implements business logic related to data storage and retrieval.
- * 
+ *
  * Key design patterns used:
  * - Repository Pattern: Centralizes data access logic
  * - Data Mapper: Maps between database records and domain objects
@@ -154,7 +164,7 @@ export class Storage implements IStorage {
 
   /**
    * Get a user by ID
-   * 
+   *
    * @param id - The user's unique identifier
    * @returns The user object if found, undefined otherwise
    */
@@ -165,10 +175,10 @@ export class Storage implements IStorage {
 
   /**
    * Get a user by username
-   * 
+   *
    * This method is primarily used for authentication purposes to look up
    * a user by their username during login.
-   * 
+   *
    * @param username - The username to look up
    * @returns The user object if found, undefined otherwise
    */
@@ -182,7 +192,7 @@ export class Storage implements IStorage {
 
   /**
    * Create a new user
-   * 
+   *
    * This method handles user creation in a special way since the user doesn't exist yet
    * when registering. It first creates the user with a temporary lastUpdatedByUser value,
    * then updates the field with the newly created user's ID.
@@ -219,10 +229,10 @@ export class Storage implements IStorage {
 
   /**
    * Create a new team
-   * 
+   *
    * Teams are always associated with a coach (coachId) who has administrative
    * privileges for the team.
-   * 
+   *
    * @param team - The team data to insert
    * @param context - The storage context containing the current user ID
    * @returns The created team with ID assigned
@@ -242,9 +252,9 @@ export class Storage implements IStorage {
 
   /**
    * Get all teams coached by a specific user
-   * 
+   *
    * This method is used to retrieve teams for a coach's dashboard.
-   * 
+   *
    * @param coachId - The coach's user ID
    * @returns Array of teams coached by the specified user
    */
@@ -254,15 +264,15 @@ export class Storage implements IStorage {
 
   /**
    * Get all teams that have players parented by a specific user
-   * 
+   *
    * This method implements a complex relationship query:
    * 1. Find all players where the parent ID matches the given user ID
    * 2. Extract the team IDs from those players
    * 3. Fetch all teams with those IDs
-   * 
+   *
    * This allows parents to see teams their children are on without
    * having direct relationships to the teams themselves.
-   * 
+   *
    * @param parentId - The parent's user ID
    * @returns Array of teams that have players parented by the specified user
    */
@@ -290,7 +300,7 @@ export class Storage implements IStorage {
 
   /**
    * Get a team by ID
-   * 
+   *
    * @param id - The team's unique identifier
    * @returns The team object if found, undefined otherwise
    */
@@ -301,12 +311,12 @@ export class Storage implements IStorage {
 
   /**
    * Create a new player
-   * 
+   *
    * Players are associated with both a team (teamId) and a parent (parentId).
    * This dual association allows for:
    * 1. Team-based operations (attendance, practice notes)
    * 2. Parent-based access control (viewing their children's data)
-   * 
+   *
    * @param player - The player data to insert
    * @param context - The storage context containing the current user ID
    * @returns The created player with ID assigned
@@ -318,7 +328,7 @@ export class Storage implements IStorage {
 
   /**
    * Get all players for a specific team
-   * 
+   *
    * @param teamId - The team's unique identifier
    * @returns Array of players for the specified team
    */
@@ -328,7 +338,7 @@ export class Storage implements IStorage {
 
   /**
    * Get a player by ID
-   * 
+   *
    * @param id - The player's unique identifier
    * @returns The player object if found, undefined otherwise
    */
@@ -339,7 +349,7 @@ export class Storage implements IStorage {
 
   /**
    * Update a player's information
-   * 
+   *
    * @param id - The player's unique identifier
    * @param updates - Partial player data to update
    * @param context - The storage context containing the current user ID
@@ -356,7 +366,7 @@ export class Storage implements IStorage {
 
   /**
    * Create a new attendance record
-   * 
+   *
    * @param record - The attendance data to insert
    * @param context - The storage context containing the current user ID
    * @returns The created attendance record with ID assigned
@@ -368,7 +378,7 @@ export class Storage implements IStorage {
 
   /**
    * Get all attendance records for a specific team
-   * 
+   *
    * @param teamId - The team's unique identifier
    * @returns Array of attendance records for the specified team
    */
@@ -378,11 +388,11 @@ export class Storage implements IStorage {
 
   /**
    * Get attendance records for a specific team on a specific date
-   * 
+   *
    * This method handles date range queries by converting the provided date
    * to a full day range (00:00:00 to 23:59:59) to ensure all records for
    * the specified date are returned regardless of the time component.
-   * 
+   *
    * @param teamId - The team's unique identifier
    * @param date - The date to get attendance for
    * @returns Array of attendance records for the specified team and date
@@ -407,15 +417,20 @@ export class Storage implements IStorage {
 
   /**
    * Update attendance records for a team on a specific date
-   * 
+   *
    * This method implements an "upsert" pattern by:
    * 1. Deleting all existing attendance records for the team and date
    * 2. Inserting new attendance records
-   * 
+   *
    * This approach ensures that the attendance records for a specific date
    * are always consistent and avoids having to track which records need
    * to be updated, deleted, or inserted individually.
-   * 
+   *
+   * Additionally, this method now:
+   * 1. Checks if players have prepaid session balances
+   * 2. Decrements session balances for present players
+   * 3. Records session transactions for tracking
+   *
    * @param teamId - The team's unique identifier
    * @param date - The date to update attendance for
    * @param records - The new attendance records
@@ -436,6 +451,9 @@ export class Storage implements IStorage {
     });
 
     try {
+      // Get existing attendance records to compare with new ones
+      const existingRecords = await this.getAttendanceByTeamAndDate(teamId, date);
+
       // Delete existing records for this date and team
       const deleteResult = await db
         .delete(attendance)
@@ -446,19 +464,61 @@ export class Storage implements IStorage {
             lte(attendance.date, endDate)
           )
         );
-      
+
       // Insert new records
       if (records.length > 0) {
         Logger.debug(`[Storage] Inserting ${records.length} attendance records`, {
           firstRecord: records[0],
           lastRecord: records[records.length - 1]
         });
-        
+
         const recordsWithAudit = records.map(record => ({
           ...this.addAuditField(record, context),
           date: ensureDate(record.date)
         }));
         const result = await db.insert(attendance).values(recordsWithAudit).returning();
+
+        // Process session balances for present players
+        for (const record of result) {
+          // Only process if player is present
+          if (record.present) {
+            // Check if player has a session balance
+            const sessionBalance = await this.getSessionBalance(record.playerId, teamId);
+
+            if (sessionBalance && sessionBalance.remainingSessions > 0) {
+              // Check if this player was already marked present in the existing records for the same day
+              const wasAlreadyPresent = existingRecords.some(
+                existingRecord => 
+                  existingRecord.playerId === record.playerId && 
+                  existingRecord.present &&
+                  existingRecord.date.toISOString().split('T')[0] === record.date.toISOString().split('T')[0]
+              );
+
+              // Only decrement if this is a new present record or changed from absent to present
+              if (!wasAlreadyPresent) {
+                // Decrement session balance
+                await this.updateSessionBalance(sessionBalance.id, {
+                  usedSessions: sessionBalance.usedSessions + 1,
+                  remainingSessions: sessionBalance.remainingSessions - 1
+                }, context);
+
+                // Add session transaction
+                await this.addSessionTransaction({
+                  playerId: record.playerId,
+                  teamId: teamId,
+                  date: record.date,
+                  sessionChange: -1,
+                  reason: 'attendance',
+                  notes: `Used 1 session for attendance on ${dateStr}`,
+                  attendanceId: record.id
+                }, context);
+
+                Logger.info(`Decremented session balance for player ${record.playerId}, remaining: ${sessionBalance.remainingSessions - 1}`);
+              }
+            }
+          }
+        }
+
         return result;
       }
 
@@ -471,11 +531,11 @@ export class Storage implements IStorage {
 
   /**
    * Get attendance records for a specific player
-   * 
+   *
    * This method retrieves all attendance records for a player within a specific team.
    * The teamId parameter is required for security to ensure that only authorized
    * users can access the attendance records.
-   * 
+   *
    * @param playerId - The player's unique identifier
    * @param teamId - The team's unique identifier
    * @returns Array of attendance records for the specified player
@@ -494,18 +554,18 @@ export class Storage implements IStorage {
 
   /**
    * Create a new practice note
-   * 
+   *
    * This method handles the creation of practice notes with special handling for dates.
    * It implements an "upsert" pattern where:
    * 1. If a note already exists for the team and date, it updates that note
    * 2. Otherwise, it creates a new note
-   * 
+   *
    * This approach ensures that there is only one practice note per team per date,
    * simplifying the data model and preventing duplicate notes.
-   * 
+   *
    * The method also standardizes dates to UTC noon to ensure consistent behavior
    * across different timezones.
-   * 
+   *
    * @param note - The practice note data to insert
    * @param context - The storage context containing the current user ID
    * @returns The created or updated practice note
@@ -539,7 +599,7 @@ export class Storage implements IStorage {
           })
           .where(eq(practiceNotes.id, existingNotes[0].id))
           .returning();
-          
+
         newNote = updatedNote;
       } else {
         // Create new note
@@ -553,7 +613,7 @@ export class Storage implements IStorage {
             playerIds: note.playerIds || []
           }, context))
           .returning();
-          
+
         newNote = createdNote;
       }
 
@@ -573,11 +633,11 @@ export class Storage implements IStorage {
 
   /**
    * Get all practice notes for a specific team
-   * 
+   *
    * This method retrieves practice notes for a team and standardizes
    * the dates to UTC noon to ensure consistent behavior across timezones.
    * Notes are ordered by date in descending order (newest first).
-   * 
+   *
    * @param teamId - The team's unique identifier
    * @returns Array of practice notes for the specified team
    */
@@ -593,7 +653,7 @@ export class Storage implements IStorage {
       return notes.map(note => {
         const standardizedDate = new Date(note.practiceDate);
         standardizedDate.setUTCHours(12, 0, 0, 0);
-        
+
         return {
           ...note,
           practiceDate: standardizedDate
@@ -607,10 +667,14 @@ export class Storage implements IStorage {
 
   /**
    * Create a new payment record
-   * 
+   *
    * This method handles the conversion of payment amounts from string to numeric format,
    * ensuring that the amount is properly stored in the database.
-   * 
+   *
+   * If the payment includes prepaid sessions, it also:
+   * 1. Creates or updates the player's session balance
+   * 2. Adds a session transaction record
+   *
    * @param payment - The payment data to insert
    * @param context - The storage context containing the current user ID
    * @returns The created payment record with ID assigned
@@ -618,13 +682,14 @@ export class Storage implements IStorage {
   async createPayment(payment: InsertPayment, context: StorageContext): Promise<Payment> {
     try {
       // Ensure amount is properly formatted for the database
-      const amount = typeof payment.amount === 'number' 
-        ? payment.amount.toString() 
+      const amount = typeof payment.amount === 'number'
+        ? payment.amount.toString()
         : payment.amount;
-      
+
       // Convert string date to Date object for the database timestamp field
       const dateValue = ensureDate(payment.date);
-      
+
+      // Create the payment record
       const [newPayment] = await db
         .insert(payments)
         .values(this.addAuditField({
@@ -635,6 +700,62 @@ export class Storage implements IStorage {
           notes: payment.notes
         }, context))
         .returning();
+
+      // Handle prepaid sessions if applicable
+      if (payment.addPrepaidSessions && payment.sessionCount && payment.sessionCount > 0) {
+        // Check if player already has a session balance
+        const existingBalance = await this.getSessionBalance(payment.playerId, payment.teamId);
+
+        if (existingBalance) {
+          // Update existing balance
+          const updatedBalance = {
+            totalSessions: existingBalance.totalSessions + payment.sessionCount,
+            remainingSessions: existingBalance.remainingSessions + payment.sessionCount
+          };
+
+          await this.updateSessionBalance(existingBalance.id, updatedBalance, context);
+        } else {
+          // Create new balance
+          await this.createSessionBalance({
+            playerId: payment.playerId,
+            teamId: payment.teamId,
+            totalSessions: payment.sessionCount,
+            usedSessions: 0,
+            remainingSessions: payment.sessionCount
+          }, context);
+        }
+
+        // Add session transaction record
+        await this.addSessionTransaction({
+          playerId: payment.playerId,
+          teamId: payment.teamId,
+          date: dateValue,
+          sessionChange: payment.sessionCount,
+          reason: 'purchase',
+          notes: `Added ${payment.sessionCount} sessions with payment #${newPayment.id}`,
+          paymentId: newPayment.id
+        }, context);
+
+        // Update payment notes to include session information if not already mentioned
+        if (newPayment.notes && !newPayment.notes.includes('session')) {
+          const updatedNotes = `${newPayment.notes} (Added ${payment.sessionCount} prepaid sessions)`;
+          await db
+            .update(payments)
+            .set({ notes: updatedNotes })
+            .where(eq(payments.id, newPayment.id));
+
+          newPayment.notes = updatedNotes;
+        } else if (!newPayment.notes) {
+          const updatedNotes = `Added ${payment.sessionCount} prepaid sessions`;
+          await db
+            .update(payments)
+            .set({ notes: updatedNotes })
+            .where(eq(payments.id, newPayment.id));
+
+          newPayment.notes = updatedNotes;
+        }
+      }
+
       return newPayment;
     } catch (error) {
       Logger.error('Error creating payment:', error);
@@ -644,10 +765,10 @@ export class Storage implements IStorage {
 
   /**
    * Get all payment records for a specific player
-   * 
+   *
    * This method retrieves payment records for a player with optional date range filtering.
    * It provides a financial history for the player.
-   * 
+   *
    * @param playerId - The player's unique identifier
    * @param startDate - Optional start date for filtering (inclusive)
    * @param endDate - Optional end date for filtering (inclusive)
@@ -659,16 +780,16 @@ export class Storage implements IStorage {
     endDate?: Date
   ): Promise<Payment[]> {
     let conditions = [eq(payments.playerId, playerId)];
-    
+
     // Add date range filters if provided
     if (startDate) {
       conditions.push(gte(payments.date, startDate));
     }
-    
+
     if (endDate) {
       conditions.push(lte(payments.date, endDate));
     }
-    
+
     return await db
       .select()
       .from(payments)
@@ -678,10 +799,10 @@ export class Storage implements IStorage {
 
   /**
    * Get all payment records for a specific team
-   * 
+   *
    * This method retrieves payment records for a team with optional date range filtering.
    * It provides a comprehensive financial overview for the team.
-   * 
+   *
    * @param teamId - The team's unique identifier
    * @param startDate - Optional start date for filtering (inclusive)
    * @param endDate - Optional end date for filtering (inclusive)
@@ -693,16 +814,16 @@ export class Storage implements IStorage {
     endDate?: Date
   ): Promise<Payment[]> {
     let conditions = [eq(payments.teamId, teamId)];
-    
+
     // Add date range filters if provided
     if (startDate) {
       conditions.push(gte(payments.date, startDate));
     }
-    
+
     if (endDate) {
       conditions.push(lte(payments.date, endDate));
     }
-    
+
     return await db
       .select()
       .from(payments)
@@ -712,13 +833,13 @@ export class Storage implements IStorage {
 
   /**
    * Get payment summary by team
-   * 
+   *
    * This method calculates the total amount paid by each player in a team.
    * It uses SQL aggregation to sum the payment amounts grouped by player.
-   * 
+   *
    * This is useful for generating financial reports and tracking which players
    * have paid their fees.
-   * 
+   *
    * @param teamId - The team's unique identifier
    * @returns Array of objects containing player ID and total amount paid
    */
@@ -737,10 +858,10 @@ export class Storage implements IStorage {
 
   /**
    * Get practice notes for a specific player
-   * 
+   *
    * This method retrieves practice notes that include a specific player.
    * It filters notes based on the playerIds array containing the specified player ID.
-   * 
+   *
    * @param playerId - The player's unique identifier
    * @param teamId - The team's unique identifier
    * @returns Array of practice notes that include the specified player
@@ -751,9 +872,9 @@ export class Storage implements IStorage {
   ): Promise<PracticeNote[]> {
     // Get all practice notes for the team
     const allNotes = await this.getPracticeNotesByTeamId(teamId);
-    
+
     // Filter notes that include this player
-    return allNotes.filter(note => 
+    return allNotes.filter(note =>
       note.playerIds && note.playerIds.includes(playerId)
     );
   }
@@ -769,7 +890,7 @@ export class Storage implements IStorage {
       throw error;
     }
   }
-  
+
   /**
    * Get team by ID
    */
@@ -782,7 +903,7 @@ export class Storage implements IStorage {
       throw error;
     }
   }
-  
+
   /**
    * Update a team's information
    */
@@ -791,13 +912,13 @@ export class Storage implements IStorage {
       // Create a new object with all props from updates
       // This ensures we don't lose any fields that aren't explicitly handled below
       const baseUpdates = { ...updates };
-      
-      // Add explicitly handled fields 
+
+      // Add explicitly handled fields
       const sanitizedUpdates = {
         ...this.addAuditField(baseUpdates, context),
         seasonStartDate: updates.seasonStartDate ? dateToISOString(new Date(updates.seasonStartDate)) : null,
         seasonEndDate: updates.seasonEndDate ? dateToISOString(new Date(updates.seasonEndDate)) : null,
-        feeType: updates.feeType || null, 
+        feeType: updates.feeType || null,
         teamFee: updates.teamFee ? updates.teamFee.toString() : null
       };
 
@@ -805,11 +926,11 @@ export class Storage implements IStorage {
         .set(sanitizedUpdates)
         .where(eq(teams.id, id))
         .returning();
-      
+
       if (!result.length) {
         throw new Error(`Team with ID ${id} not found`);
       }
-      
+
       return result[0];
     } catch (error) {
       Logger.error("Error updating team", error);
@@ -819,7 +940,7 @@ export class Storage implements IStorage {
 
   /**
    * Create a new team member
-   * 
+   *
    * @param teamMember - The team member data to insert
    * @param context - The storage context containing the current user ID
    * @returns The created team member with ID assigned
@@ -829,7 +950,7 @@ export class Storage implements IStorage {
       // Validate and potentially correct the role
       if (!isValidTeamRole(teamMember.role)) {
         const suggestedRole = getSuggestedTeamRole(teamMember.role);
-        
+
         if (suggestedRole !== teamMember.role) {
           teamMember.role = suggestedRole as TeamRole;
         } else {
@@ -840,12 +961,12 @@ export class Storage implements IStorage {
           });
         }
       }
-      
+
       const result = await db
         .insert(teamMembers)
         .values(this.addAuditField(teamMember, context))
         .returning();
-      
+
       return result[0];
     } catch (error) {
       Logger.error("Error creating team member", error);
@@ -855,7 +976,7 @@ export class Storage implements IStorage {
 
   /**
    * Get all members of a team
-   * 
+   *
    * @param teamId - The team's unique identifier
    * @returns Array of team members with user information for the specified team
    */
@@ -882,36 +1003,36 @@ export class Storage implements IStorage {
 
   /**
    * Get all team memberships for a user
-   * 
+   *
    * This method retrieves all teams a user is a member of, along with their role
    * in each team. It includes the team name for convenience.
-   * 
+   *
    * @param userId - The user's unique identifier
    * @returns Array of team memberships with team names
    */
   async getTeamMembersByUserId(userId: number): Promise<(TeamMember & { teamName?: string })[]> {
     try {
-      
+
       // Get team memberships
       const query = db.select().from(teamMembers).where(eq(teamMembers.userId, userId));
-      
+
       const memberships = await query;
-      
+
       // If no memberships, return empty array
       if (memberships.length === 0) {
         return [];
       }
-      
+
       // Get team names
       const teamIds = memberships.map(membership => membership.teamId);
-      
+
       const teamQuery = db
         .select({ id: teams.id, name: teams.name })
         .from(teams)
         .where(inArray(teams.id, teamIds));
-      
+
       const teamInfo = await teamQuery;
-      
+
       // Combine membership data with team names
       const result = memberships.map(membership => {
         const team = teamInfo.find(t => t.id === membership.teamId);
@@ -920,7 +1041,7 @@ export class Storage implements IStorage {
           teamName: team?.name
         };
       });
-      
+
       return result;
     } catch (error) {
       console.error(`[Storage] Error fetching team memberships for userId: ${userId}`, error);
@@ -931,7 +1052,7 @@ export class Storage implements IStorage {
 
   /**
    * Update a team member's information
-   * 
+   *
    * @param id - The team member's unique identifier
    * @param updates - The updated team member data
    * @param context - The storage context containing the current user ID
@@ -942,7 +1063,7 @@ export class Storage implements IStorage {
       // Validate role if it's being updated
       if (updates.role && !isValidTeamRole(updates.role)) {
         const suggestedRole = getSuggestedTeamRole(updates.role);
-        
+
         if (suggestedRole !== updates.role) {
           updates.role = suggestedRole as TeamRole;
         } else {
@@ -952,17 +1073,17 @@ export class Storage implements IStorage {
           });
         }
       }
-      
+
       const result = await db
         .update(teamMembers)
         .set(this.addAuditField(updates, context))
         .where(eq(teamMembers.id, id))
         .returning();
-      
+
       if (!result.length) {
         throw new Error(`Team member with id ${id} not found`);
       }
-      
+
       return result[0];
     } catch (error) {
       Logger.error(`Error updating team member: ${id}`, error);
@@ -972,7 +1093,7 @@ export class Storage implements IStorage {
 
   /**
    * Delete a team member
-   * 
+   *
    * @param id - The team member's unique identifier
    */
   async deleteTeamMember(id: number): Promise<void> {
@@ -986,7 +1107,7 @@ export class Storage implements IStorage {
 
   /**
    * Get a user by ID
-   * 
+   *
    * @param id - The user ID
    * @returns User object or undefined if not found
    */
@@ -999,10 +1120,10 @@ export class Storage implements IStorage {
       throw error;
     }
   }
-  
+
   /**
    * Update a user's profile
-   * 
+   *
    * @param userData - The user data to update
    * @param context - The context for the operation
    * @returns Updated user object
@@ -1016,32 +1137,191 @@ export class Storage implements IStorage {
   }, context: StorageContext): Promise<User> {
     try {
       const { id, ...updateData } = userData;
-      
+
       // If password is being updated, hash it
       if (updateData.password) {
         const passwordHash = await hashPassword(updateData.password);
         updateData.password = passwordHash;
       }
-      
+
       // Always set the lastUpdatedByUser field
       const updateWithMeta = {
         ...updateData,
         lastUpdatedByUser: context.currentUserId,
       };
-      
+
       const result = await db
         .update(users)
         .set(updateWithMeta)
         .where(eq(users.id, id))
         .returning();
-      
+
       if (!result[0]) {
         throw new Error(`User with id ${id} not found`);
       }
-      
+
       return result[0];
     } catch (error) {
       Logger.error("Error in updateUser", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get session balance for a player
+   *
+   * @param playerId - The player's unique identifier
+   * @param teamId - The team's unique identifier
+   * @returns The session balance if found, undefined otherwise
+   */
+  async getSessionBalance(playerId: number, teamId: number): Promise<SessionBalance | undefined> {
+    try {
+      const result = await db
+        .select()
+        .from(sessionBalances)
+        .where(
+          and(
+            eq(sessionBalances.playerId, playerId),
+            eq(sessionBalances.teamId, teamId)
+          )
+        );
+      return result[0];
+    } catch (error) {
+      Logger.error("Error getting session balance", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all session balances for a team
+   *
+   * @param teamId - The team's unique identifier
+   * @returns Array of session balances for the specified team
+   */
+  async getSessionBalancesByTeamId(teamId: number): Promise<SessionBalance[]> {
+    try {
+      return await db
+        .select()
+        .from(sessionBalances)
+        .where(eq(sessionBalances.teamId, teamId));
+    } catch (error) {
+      Logger.error("Error getting session balances by team", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create a new session balance
+   *
+   * @param sessionBalance - The session balance data to insert
+   * @param context - The storage context containing the current user ID
+   * @returns The created session balance with ID assigned
+   */
+  async createSessionBalance(sessionBalance: InsertSessionBalance, context: StorageContext): Promise<SessionBalance> {
+    try {
+      // Format expiration date if provided
+      const formattedBalance = {
+        ...sessionBalance,
+        expirationDate: sessionBalance.expirationDate
+          ? dateToISOString(new Date(sessionBalance.expirationDate))
+          : null
+      };
+
+      const [newBalance] = await db
+        .insert(sessionBalances)
+        .values(this.addAuditField(formattedBalance, context))
+        .returning();
+
+      return newBalance;
+    } catch (error) {
+      Logger.error("Error creating session balance", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update a session balance
+   *
+   * @param id - The session balance's unique identifier
+   * @param updates - The updates to apply
+   * @param context - The storage context containing the current user ID
+   * @returns The updated session balance
+   */
+  async updateSessionBalance(id: number, updates: Partial<InsertSessionBalance>, context: StorageContext): Promise<SessionBalance> {
+    try {
+      // Format expiration date if provided
+      const formattedUpdates = {
+        ...updates,
+        expirationDate: updates.expirationDate
+          ? dateToISOString(new Date(updates.expirationDate))
+          : undefined
+      };
+
+      const [updatedBalance] = await db
+        .update(sessionBalances)
+        .set(this.addAuditField(formattedUpdates, context))
+        .where(eq(sessionBalances.id, id))
+        .returning();
+
+      if (!updatedBalance) {
+        throw new Error(`Session balance with id ${id} not found`);
+      }
+
+      return updatedBalance;
+    } catch (error) {
+      Logger.error("Error updating session balance", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Add a session transaction
+   *
+   * @param transaction - The session transaction data to insert
+   * @param context - The storage context containing the current user ID
+   * @returns The created session transaction with ID assigned
+   */
+  async addSessionTransaction(transaction: InsertSessionTransaction, context: StorageContext): Promise<SessionTransaction> {
+    try {
+      // Ensure date is properly formatted
+      const dateValue = ensureDate(transaction.date);
+
+      const [newTransaction] = await db
+        .insert(sessionTransactions)
+        .values(this.addAuditField({
+          ...transaction,
+          date: dateValue
+        }, context))
+        .returning();
+
+      return newTransaction;
+    } catch (error) {
+      Logger.error("Error adding session transaction", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get session transactions for a player
+   *
+   * @param playerId - The player's unique identifier
+   * @param teamId - The team's unique identifier
+   * @returns Array of session transactions for the specified player
+   */
+  async getSessionTransactionsByPlayerId(playerId: number, teamId: number): Promise<SessionTransaction[]> {
+    try {
+      return await db
+        .select()
+        .from(sessionTransactions)
+        .where(
+          and(
+            eq(sessionTransactions.playerId, playerId),
+            eq(sessionTransactions.teamId, teamId)
+          )
+        )
+        .orderBy(desc(sessionTransactions.date));
+    } catch (error) {
+      Logger.error("Error getting session transactions by player", error);
       throw error;
     }
   }

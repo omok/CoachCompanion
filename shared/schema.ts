@@ -1,6 +1,6 @@
 /**
  * Database schema definitions using Drizzle ORM
- * 
+ *
  * Conventions:
  * - All entity tables must include a lastUpdatedByUser column for audit tracking
  * - This column stores the user ID of the person who last modified the record
@@ -103,6 +103,32 @@ export const payments = pgTable("payments", {
   lastUpdatedByUser: integer("lastUpdatedByUser").notNull(),
 });
 
+// Session tracking table
+export const sessionBalances = pgTable("session_balances", {
+  id: serial("id").primaryKey(),
+  playerId: integer("player_id").notNull(),
+  teamId: integer("team_id").notNull(),
+  totalSessions: integer("total_sessions").notNull(),
+  usedSessions: integer("used_sessions").notNull().default(0),
+  remainingSessions: integer("remaining_sessions").notNull(),
+  expirationDate: date("expiration_date"),
+  lastUpdatedByUser: integer("lastUpdatedByUser").notNull(),
+});
+
+// Session transactions table to track history of session changes
+export const sessionTransactions = pgTable("session_transactions", {
+  id: serial("id").primaryKey(),
+  playerId: integer("player_id").notNull(),
+  teamId: integer("team_id").notNull(),
+  date: timestamp("date").notNull(),
+  sessionChange: integer("session_change").notNull(), // Positive for additions, negative for deductions
+  reason: varchar("reason").notNull(), // e.g., "purchase", "attendance", "adjustment"
+  notes: varchar("notes"),
+  paymentId: integer("payment_id"), // Optional link to a payment record
+  attendanceId: integer("attendance_id"), // Optional link to an attendance record
+  lastUpdatedByUser: integer("lastUpdatedByUser").notNull(),
+});
+
 // System usage logs table for analytics and monitoring
 export const usageLogs = pgTable("usage_logs", {
   id: uuid("id").primaryKey(),
@@ -179,6 +205,30 @@ export const insertPaymentSchema = z.object({
     .pipe(z.number().positive().multipleOf(0.01)),
   date: z.union([z.string(), z.instanceof(Date)]),
   notes: z.string().optional(),
+  addPrepaidSessions: z.boolean().optional(),
+  sessionCount: z.number().int().positive().optional(),
+});
+
+// Session balance schema
+export const insertSessionBalanceSchema = z.object({
+  playerId: z.number(),
+  teamId: z.number(),
+  totalSessions: z.number().int().positive(),
+  usedSessions: z.number().int().min(0).optional(),
+  remainingSessions: z.number().int().min(0),
+  expirationDate: z.union([z.string(), z.date()]).optional(),
+});
+
+// Session transaction schema
+export const insertSessionTransactionSchema = z.object({
+  playerId: z.number(),
+  teamId: z.number(),
+  date: z.union([z.string(), z.instanceof(Date)]),
+  sessionChange: z.number().int(),
+  reason: z.string(),
+  notes: z.string().optional(),
+  paymentId: z.number().optional(),
+  attendanceId: z.number().optional(),
 });
 
 /**
@@ -199,6 +249,8 @@ export type Player = typeof players.$inferSelect;
 export type Attendance = typeof attendance.$inferSelect;
 export type PracticeNote = typeof practiceNotes.$inferSelect;
 export type Payment = typeof payments.$inferSelect;
+export type SessionBalance = typeof sessionBalances.$inferSelect;
+export type SessionTransaction = typeof sessionTransactions.$inferSelect;
 export type UsageLog = typeof usageLogs.$inferSelect;
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -208,3 +260,5 @@ export type InsertPlayer = z.infer<typeof insertPlayerSchema>;
 export type InsertAttendance = z.infer<typeof insertAttendanceSchema>;
 export type InsertPracticeNote = z.infer<typeof insertPracticeNoteSchema>;
 export type InsertPayment = z.infer<typeof insertPaymentSchema>;
+export type InsertSessionBalance = z.infer<typeof insertSessionBalanceSchema>;
+export type InsertSessionTransaction = z.infer<typeof insertSessionTransactionSchema>;

@@ -4,7 +4,7 @@ import { Payment, Player, insertPaymentSchema } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -32,7 +32,7 @@ function getTodayInYYYYMMDD(): string {
 // Helper function to format display dates for UI
 function formatDisplayDate(dateString: string): string {
   if (!dateString) return '';
-  
+
   // If it's already in YYYY-MM-DD format, use it directly
   if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
     try {
@@ -42,7 +42,7 @@ function formatDisplayDate(dateString: string): string {
       return dateString;
     }
   }
-  
+
   // Otherwise try to parse it as an ISO string
   try {
     return format(new Date(dateString), 'MMM d, yyyy');
@@ -59,12 +59,13 @@ const formSchema = z.object({
     { message: "Amount must be a positive number" }
   ),
   date: z.string().min(1, "Date is required"),
+  sessionCount: z.coerce.number().optional(),
   notes: z.string().optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
 
-export function PaymentTracker({ teamId }: { teamId: number }) {
+export function PaymentTracker({ teamId, feeType }: { teamId: number, feeType?: string }) {
   const { toast } = useToast();
   const { user } = useAuth();
   const { showPlayerDetails } = usePlayerContext();
@@ -93,13 +94,10 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
 
   const addPaymentMutation = useMutation({
     mutationFn: async (data: FormData) => {
-      
-      // We're sending the date as YYYY-MM-DD string directly
-      // No need to create Date objects which can cause timezone issues
-      
       const res = await apiRequest("POST", `/api/teams/${teamId}/payments`, {
         ...data,
         teamId,
+        ...(feeType === "prepaid" && data.sessionCount ? { addPrepaidSessions: true, sessionCount: data.sessionCount } : {}),
       });
       if (!res.ok) {
         const error = await res.text();
@@ -111,16 +109,17 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
       // Invalidate team-wide payment queries
       queryClient.invalidateQueries({ queryKey: [`/api/teams/${teamId}/payments`] });
       queryClient.invalidateQueries({ queryKey: [`/api/teams/${teamId}/payments/totals`] });
-      
+
       // Also invalidate player-specific payment query to update player details popup
-      queryClient.invalidateQueries({ 
-        queryKey: [`/api/teams/${teamId}/payments/player/${variables.playerId}`] 
+      queryClient.invalidateQueries({
+        queryKey: [`/api/teams/${teamId}/payments/player/${variables.playerId}`]
       });
-      
+
       form.reset({
         date: getTodayInYYYYMMDD(), // Using our helper function
         amount: "",
       });
+
       toast({
         title: "Payment Added",
         description: "The payment has been recorded successfully.",
@@ -146,17 +145,21 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
   if (!players) return null;
 
   // Filter players based on the toggle state - only for the dropdown
-  const displayedPlayers = showAllPlayers 
+  const displayedPlayers = showAllPlayers
     ? players.sort((a, b) => a.name.localeCompare(b.name))
     : players.filter(player => player.active).sort((a, b) => a.name.localeCompare(b.name));
 
   // Always show all players in the payment totals
   const paymentTotalsWithNames = paymentTotals
-    ?.map((total) => ({
-      ...total,
-      playerName: players?.find((p) => p.id === total.playerId)?.name || "Unknown Player",
-      isActive: players?.find((p) => p.id === total.playerId)?.active || false
-    })) || [];
+    ?.map((total) => {
+      const player = players?.find((p) => p.id === total.playerId);
+
+      return {
+        ...total,
+        playerName: player?.name || "Unknown Player",
+        isActive: player?.active || false
+      };
+    }) || [];
 
   return (
     <div className="space-y-6">
@@ -177,10 +180,10 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
           <CardDescription>Record a new payment for a player</CardDescription>
         </CardHeader>
         <CardContent>
-          <form 
+          <form
             onSubmit={form.handleSubmit((data) => {
               addPaymentMutation.mutate(data);
-            })} 
+            })}
             className="space-y-4"
           >
             <div className="space-y-2">
@@ -237,10 +240,10 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
               <label htmlFor="date" className="text-sm font-medium">
                 Date
               </label>
-              <Input 
+              <Input
                 id="date"
-                type="date" 
-                {...form.register("date")} 
+                type="date"
+                {...form.register("date")}
               />
               {form.formState.errors.date && (
                 <p className="text-sm text-red-500">
@@ -248,6 +251,28 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
                 </p>
               )}
             </div>
+
+            {feeType === "prepaid" && (
+              <div className="space-y-2">
+                <label htmlFor="sessionCount" className="text-sm font-medium">
+                  Number of Prepaid Sessions
+                </label>
+                <Input
+                  id="sessionCount"
+                  type="number"
+                  min={1}
+                  {...form.register("sessionCount", { valueAsNumber: true })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Enter the number of prepaid sessions included with this payment.
+                </p>
+                {form.formState.errors.sessionCount && (
+                  <p className="text-sm text-red-500">
+                    {form.formState.errors.sessionCount.message}
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className="space-y-2">
               <label htmlFor="notes" className="text-sm font-medium">
@@ -293,7 +318,7 @@ export function PaymentTracker({ teamId }: { teamId: number }) {
                   className="flex justify-between items-center border-b pb-2"
                 >
                   <div className="flex items-center">
-                    <div 
+                    <div
                       className="font-medium text-primary hover:text-primary/80 cursor-pointer"
                       onClick={() => showPlayerDetails(teamId, total.playerId)}
                     >

@@ -5,6 +5,7 @@ import { TeamRoster } from "@/components/team-roster";
 import { AttendanceTracker } from "@/components/attendance-tracker";
 import { PracticeNotes } from "@/components/practice-notes";
 import { PaymentTracker } from "@/components/payment-tracker";
+import { PrepaidSessionTracker } from "@/components/prepaid-session-tracker";
 import { TeamSettings } from "@/components/team-settings";
 import { useQuery } from "@tanstack/react-query";
 import { Team } from "@shared/schema";
@@ -17,6 +18,7 @@ import {
   DollarSign,
   Loader2,
   Settings,
+  Ticket,
 } from "lucide-react";
 import { CreateTeamDialog } from "@/components/create-team-dialog";
 import { USER_ROLES, type UserRole } from '@shared/constants';
@@ -27,7 +29,7 @@ import { UserProfileDialog } from "@/components/user-profile-dialog";
 
 export default function Dashboard() {
   const { user, logoutMutation } = useAuth();
-  const { 
+  const {
     canSeeTeamRoster,
     canTakeAttendance,
     canAddPracticeNote,
@@ -35,7 +37,7 @@ export default function Dashboard() {
     canManageTeamSettings
   } = usePermissions();
   const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<"roster" | "attendance" | "notes" | "payments" | "settings">("roster");
+  const [activeTab, setActiveTab] = useState<"roster" | "attendance" | "notes" | "payments" | "prepaid" | "settings">("roster");
 
   // Fetch teams data
   const { data: teams, isLoading: isLoadingTeams } = useQuery<Team[]>({
@@ -57,7 +59,7 @@ export default function Dashboard() {
   // Sort teams by name and attach role information
   const sortedTeamsWithRoles = useMemo(() => {
     if (!teams) return [];
-    
+
     return [...teams]
       .sort((a, b) => a.name.localeCompare(b.name))
       .map(team => ({
@@ -154,6 +156,16 @@ export default function Dashboard() {
                   Payments
                 </Button>
               )}
+              {canManagePayments(selectedTeamId) && selectedTeam?.feeType === "prepaid" && (
+                <Button
+                  variant={activeTab === "prepaid" ? "secondary" : "ghost"}
+                  className="w-full justify-start"
+                  onClick={() => setActiveTab("prepaid")}
+                >
+                  <Ticket className="h-4 w-4 mr-2" />
+                  Prepaid
+                </Button>
+              )}
               {canManageTeamSettings(selectedTeamId) && (
                 <Button
                   variant={activeTab === "settings" ? "secondary" : "ghost"}
@@ -193,7 +205,10 @@ export default function Dashboard() {
             {activeTab === "roster" && canSeeTeamRoster(selectedTeamId) && <TeamRoster teamId={selectedTeamId} />}
             {activeTab === "attendance" && canTakeAttendance(selectedTeamId) && <AttendanceTracker teamId={selectedTeamId} />}
             {activeTab === "notes" && canAddPracticeNote(selectedTeamId) && <PracticeNotes teamId={selectedTeamId} />}
-            {activeTab === "payments" && canManagePayments(selectedTeamId) && <PaymentTracker teamId={selectedTeamId} />}
+            {activeTab === "payments" && canManagePayments(selectedTeamId) && (
+              <PaymentTracker teamId={selectedTeamId} feeType={selectedTeam?.feeType} />
+            )}
+            {activeTab === "prepaid" && canManagePayments(selectedTeamId) && selectedTeam?.feeType === "prepaid" && <PrepaidSessionTracker teamId={selectedTeamId} />}
             {activeTab === "settings" && canManageTeamSettings(selectedTeamId) && <TeamSettings teamId={selectedTeamId} />}
           </>
         )}

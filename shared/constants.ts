@@ -20,4 +20,4 @@ export const TEAM_ROLES = {
 
 // Type definitions for type safety
 export type UserRole = typeof USER_ROLES[keyof typeof USER_ROLES];
-export type TeamRole = typeof TEAM_ROLES[keyof typeof TEAM_ROLES]; 
+export type TeamRole = typeof TEAM_ROLES[keyof typeof TEAM_ROLES];

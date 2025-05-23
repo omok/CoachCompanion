@@ -115,6 +115,16 @@ export function PaymentTracker({ teamId, feeType }: { teamId: number, feeType?: 
         queryKey: [`/api/teams/${teamId}/payments/player/${variables.playerId}`]
       });
 
+      // Invalidate session balances for the team and the player
+      queryClient.invalidateQueries({ queryKey: [`/api/teams/${teamId}/sessions`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/teams/${teamId}/sessions/${variables.playerId}`] });
+      // Invalidate all per-player session queries for active players
+      if (players) {
+        players.filter(p => p.active).forEach(player => {
+          queryClient.invalidateQueries({ queryKey: [`/api/teams/${teamId}/sessions/${player.id}`] });
+        });
+      }
+
       form.reset({
         date: getTodayInYYYYMMDD(), // Using our helper function
         amount: "",

@@ -182,6 +182,12 @@ export function AttendanceTracker({ teamId }: { teamId: number }) {
 
       // Also invalidate session balances since they may have changed
       queryClient.invalidateQueries({ queryKey: [`/api/teams/${teamId}/sessions`] });
+      // Invalidate all per-player session queries for active players
+      if (players) {
+        players.filter(p => p.active).forEach(player => {
+          queryClient.invalidateQueries({ queryKey: [`/api/teams/${teamId}/sessions/${player.id}`] });
+        });
+      }
 
       // Show toast notification for players with no sessions left
       const playersWithNoSessions = presentPlayers

@@ -18,6 +18,7 @@ import { Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { z } from "zod";
 import { usePlayerContext } from "./player-context";
+import { useLocation } from "wouter";
 
 
 
@@ -43,6 +44,7 @@ interface PrepaidSessionTrackerProps {
 export function PrepaidSessionTracker({ teamId }: PrepaidSessionTrackerProps) {
   const { toast } = useToast();
   const { showPlayerDetails } = usePlayerContext();
+  const [location] = useLocation();
 
   // Form setup
   const form = useForm<FormData>({
@@ -82,6 +84,21 @@ export function PrepaidSessionTracker({ teamId }: PrepaidSessionTrackerProps) {
     window.addEventListener("focus", handleFocus);
     return () => window.removeEventListener("focus", handleFocus);
   }, [refetchPlayers, refetchSessionBalances, players, teamId]);
+
+  // Refetch data on navigation to the Prepaid page
+  useEffect(() => {
+    // Adjust this path to match your actual Prepaid page route
+    const isPrepaidPage = location.includes("prepaid");
+    if (isPrepaidPage) {
+      refetchPlayers();
+      refetchSessionBalances();
+      if (players) {
+        players.filter(p => p.active).forEach(player => {
+          queryClient.invalidateQueries({ queryKey: [`/api/teams/${teamId}/sessions/${player.id}`] });
+        });
+      }
+    }
+  }, [location, refetchPlayers, refetchSessionBalances, players, teamId]);
 
   // Mutation for adding prepaid sessions
   const addSessionsMutation = useMutation({
@@ -208,8 +225,8 @@ export function PrepaidSessionTracker({ teamId }: PrepaidSessionTrackerProps) {
     addSessionsMutation.mutate(data);
   };
 
-  // Filter active players
-  const activePlayers = players?.filter(player => player.active) || [];
+  // Filter and sort active players
+  const activePlayers = (players?.filter(player => player.active) || []).sort((a, b) => a.name.localeCompare(b.name));
 
   // Loading state
   if (isLoadingPlayers || isLoadingSessionBalances) {
@@ -231,7 +248,7 @@ export function PrepaidSessionTracker({ teamId }: PrepaidSessionTrackerProps) {
         isActive: player?.active || false
       };
     })
-    .filter((balance: any) => balance.isActive) // Only show active players
+    .filter((balance: any) => balance.isActive)
     .sort((a: any, b: any) => a.playerName.localeCompare(b.playerName));
 
   return (

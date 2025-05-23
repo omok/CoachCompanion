@@ -478,44 +478,62 @@ export class Storage implements IStorage {
         }));
         const result = await db.insert(attendance).values(recordsWithAudit).returning();
 
-        // Process session balances for present players
-        for (const record of result) {
-          // Only process if player is present
-          if (record.present) {
-            // Check if player has a session balance
-            const sessionBalance = await this.getSessionBalance(record.playerId, teamId);
+        // Build a map of playerId to previous present status
+        const prevStatusMap = new Map<number, boolean>();
+        existingRecords.forEach(r => {
+          prevStatusMap.set(r.playerId, r.present);
+        });
+        // Build a map of playerId to new present status
+        const newStatusMap = new Map<number, boolean>();
+        result.forEach(r => {
+          newStatusMap.set(r.playerId, r.present);
+        });
 
-            if (sessionBalance && sessionBalance.remainingSessions > 0) {
-              // Check if this player was already marked present in the existing records for the same day
-              const wasAlreadyPresent = existingRecords.some(
-                existingRecord => 
-                  existingRecord.playerId === record.playerId && 
-                  existingRecord.present &&
-                  existingRecord.date.toISOString().split('T')[0] === record.date.toISOString().split('T')[0]
-              );
+        // Get all unique playerIds involved
+        const allPlayerIds = Array.from(new Set(Array.from(prevStatusMap.keys()).concat(Array.from(newStatusMap.keys()))));
+        for (let i = 0; i < allPlayerIds.length; i++) {
+          const playerId = allPlayerIds[i];
+          const wasPresent = prevStatusMap.get(playerId) || false;
+          const isNowPresent = newStatusMap.get(playerId) || false;
+          const record = result.find(r => r.playerId === playerId);
+          if (!record) continue;
+          const sessionBalance = await this.getSessionBalance(playerId, teamId);
+          if (!sessionBalance) continue;
 
-              // Only decrement if this is a new present record or changed from absent to present
-              if (!wasAlreadyPresent) {
-                // Decrement session balance
-                await this.updateSessionBalance(sessionBalance.id, {
-                  usedSessions: sessionBalance.usedSessions + 1,
-                  remainingSessions: sessionBalance.remainingSessions - 1
-                }, context);
-
-                // Add session transaction
-                await this.addSessionTransaction({
-                  playerId: record.playerId,
-                  teamId: teamId,
-                  date: record.date,
-                  sessionChange: -1,
-                  reason: 'attendance',
-                  notes: `Used 1 session for attendance on ${dateStr}`,
-                  attendanceId: record.id
-                }, context);
-
-                Logger.info(`Decremented session balance for player ${record.playerId}, remaining: ${sessionBalance.remainingSessions - 1}`);
-              }
+          if (!wasPresent && isNowPresent) {
+            // Subtract session (already implemented, but move here for clarity)
+            if (sessionBalance.remainingSessions > 0) {
+              await this.updateSessionBalance(sessionBalance.id, {
+                usedSessions: sessionBalance.usedSessions + 1,
+                remainingSessions: sessionBalance.remainingSessions - 1
+              }, context);
+              await this.addSessionTransaction({
+                playerId,
+                teamId,
+                date: record.date,
+                sessionChange: -1,
+                reason: 'attendance',
+                notes: `Used 1 session for attendance on ${dateStr}`,
+                attendanceId: record.id
+              }, context);
+              Logger.info(`Decremented session balance for player ${playerId}, remaining: ${sessionBalance.remainingSessions - 1}`);
             }
+          } else if (wasPresent && !isNowPresent) {
+            // Restore session
+            await this.updateSessionBalance(sessionBalance.id, {
+              usedSessions: Math.max(sessionBalance.usedSessions - 1, 0),
+              remainingSessions: sessionBalance.remainingSessions + 1
+            }, context);
+            await this.addSessionTransaction({
+              playerId,
+              teamId,
+              date: record.date,
+              sessionChange: 1,
+              reason: 'attendance-cancel',
+              notes: `Restored 1 session for attendance removal on ${dateStr}`,
+              attendanceId: record.id
+            }, context);
+            Logger.info(`Restored session balance for player ${playerId}, remaining: ${sessionBalance.remainingSessions + 1}`);
           }
         }
 

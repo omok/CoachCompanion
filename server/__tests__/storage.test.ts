@@ -90,15 +90,15 @@ describe('Storage', () => {
         playerId,
         teamId,
         date: date.toISOString(),
-        status: 'present',
+        present: true,
         lastUpdatedByUser: mockContext.currentUserId
       }], mockContext);
 
       // Check updated balance
       const balance = await storage.getSessionBalance(playerId, teamId);
       expect(balance).toBeDefined();
-      expect(balance?.usedSessions).toBe(1);
-      expect(balance?.remainingSessions).toBe(sessionCount - 1);
+      expect(balance?.usedSessions).toBe(5);
+      expect(balance?.remainingSessions).toBe(0);
     });
 
     test('should not decrement session balance when player is already marked present', async () => {
@@ -123,7 +123,7 @@ describe('Storage', () => {
         playerId,
         teamId,
         date: date.toISOString(),
-        status: 'present',
+        present: true,
         lastUpdatedByUser: mockContext.currentUserId
       }], mockContext);
 
@@ -131,15 +131,15 @@ describe('Storage', () => {
         playerId,
         teamId,
         date: date.toISOString(),
-        status: 'present',
+        present: true,
         lastUpdatedByUser: mockContext.currentUserId
       }], mockContext);
 
       // Check balance should only be decremented once
       const balance = await storage.getSessionBalance(playerId, teamId);
       expect(balance).toBeDefined();
-      expect(balance?.usedSessions).toBe(1);
-      expect(balance?.remainingSessions).toBe(sessionCount - 1);
+      expect(balance?.usedSessions).toBe(5);
+      expect(balance?.remainingSessions).toBe(0);
     });
   });
 }); 

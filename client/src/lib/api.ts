@@ -13,18 +13,15 @@ export async function getPlayerSessionBalance(teamId: number, playerId: number):
   transactions: SessionTransaction[];
 }> {
   try {
-    console.log(`Fetching session balance for player ${playerId} in team ${teamId}`);
     const res = await apiRequest('GET', `/api/teams/${teamId}/sessions/${playerId}`);
 
     if (!res.ok) {
       const errorText = await res.text().catch(() => res.statusText);
-      console.error(`Failed to fetch session balance: ${errorText}`);
       throw new Error(`Failed to fetch session balance: ${res.status} ${res.statusText}`);
     }
 
     return res.json();
   } catch (error) {
-    console.error('Error in getPlayerSessionBalance:', error);
     throw error;
   }
 }
@@ -85,8 +82,6 @@ export async function addPrepaidSessions(
   notes?: string
 ): Promise<SessionBalance> {
   try {
-    console.log(`Adding ${sessionCount} prepaid sessions for player ${playerId} in team ${teamId}`);
-
     // Skip trying to get the current balance and just create a new one directly
     // This avoids the 500 error when trying to get the balance
 
@@ -98,8 +93,6 @@ export async function addPrepaidSessions(
       notes: notes || `Added ${sessionCount} prepaid sessions without payment`
     };
 
-    console.log("Sending update data:", updateData);
-
     // Update the balance
     const res = await apiRequest('PUT', `/api/teams/${teamId}/sessions/${playerId}`, updateData);
 
@@ -108,10 +101,8 @@ export async function addPrepaidSessions(
 
       try {
         const errorData = await res.json();
-        console.error("Error response:", errorData);
         errorMessage = errorData.message || errorMessage;
       } catch (e) {
-        console.error("Could not parse error response:", e);
       }
 
       throw new Error(errorMessage);
@@ -119,7 +110,6 @@ export async function addPrepaidSessions(
 
     return res.json();
   } catch (error) {
-    console.error('Error adding prepaid sessions:', error);
     throw error;
   }
 }

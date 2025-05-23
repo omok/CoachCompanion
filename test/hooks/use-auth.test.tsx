@@ -29,6 +29,14 @@ vi.mock('@/lib/queryClient', () => ({
   },
 }));
 
+vi.mock('@tanstack/react-query', () => {
+  const actual = vi.importActual('@tanstack/react-query');
+  return {
+    ...actual,
+    QueryClient: class { constructor() {} },
+  };
+});
+
 describe('useAuth hook', () => {
   beforeEach(() => {
     vi.clearAllMocks();

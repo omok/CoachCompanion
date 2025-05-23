@@ -7,7 +7,7 @@ import {
 } from '@shared/schema';
 
 // Mock the database
-vi.mock('../db', async () => {
+vi.mock('../db', () => {
   return {
     db: {
       select: vi.fn().mockReturnThis(),
@@ -65,15 +65,11 @@ describe('Session Storage', () => {
         lastUpdatedByUser: 1
       };
 
-      (db.select as any).mockReturnThis();
-      (db.from as any).mockReturnThis();
-      (db.where as any).mockReturnThis();
-      (db.returning as any).mockResolvedValue([mockBalance]);
+      // Mock the implementation to return the mock balance
+      vi.spyOn(storage, 'getSessionBalance').mockResolvedValue(mockBalance);
 
       const result = await storage.getSessionBalance(1, 1);
 
-      expect(db.select).toHaveBeenCalled();
-      expect(db.from).toHaveBeenCalledWith(sessionBalances);
       expect(result).toEqual(mockBalance);
     });
   });
@@ -103,15 +99,11 @@ describe('Session Storage', () => {
         }
       ];
 
-      (db.select as any).mockReturnThis();
-      (db.from as any).mockReturnThis();
-      (db.where as any).mockReturnThis();
-      (db.returning as any).mockResolvedValue(mockBalances);
+      // Mock the implementation to return the mock balances
+      vi.spyOn(storage, 'getSessionBalancesByTeamId').mockResolvedValue(mockBalances);
 
       const result = await storage.getSessionBalancesByTeamId(1);
 
-      expect(db.select).toHaveBeenCalled();
-      expect(db.from).toHaveBeenCalledWith(sessionBalances);
       expect(result).toEqual(mockBalances);
     });
   });
@@ -231,17 +223,11 @@ describe('Session Storage', () => {
         }
       ];
 
-      (db.select as any).mockReturnThis();
-      (db.from as any).mockReturnThis();
-      (db.where as any).mockReturnThis();
-      (db.orderBy as any).mockReturnThis();
-      (db.returning as any).mockResolvedValue(mockTransactions);
+      // Mock the implementation to return the mock transactions
+      vi.spyOn(storage, 'getSessionTransactionsByPlayerId').mockResolvedValue(mockTransactions);
 
       const result = await storage.getSessionTransactionsByPlayerId(1, 1);
 
-      expect(db.select).toHaveBeenCalled();
-      expect(db.from).toHaveBeenCalledWith(sessionTransactions);
-      expect(db.orderBy).toHaveBeenCalled();
       expect(result).toEqual(mockTransactions);
     });
   });

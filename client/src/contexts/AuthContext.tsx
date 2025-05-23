@@ -21,11 +21,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Get the actual auth state from the new hook
   const auth = useAuth();
   
-  // Log that we're using the legacy AuthProvider
-  useEffect(() => {
-    console.log('[Legacy AuthContext] Using legacy AuthContext wrapper, user:', auth.user);
-  }, [auth.user]);
-  
   // The value provided is exactly the same as in the new hook
   return <AuthContext.Provider value={auth}>{children}</AuthContext.Provider>;
 }; 

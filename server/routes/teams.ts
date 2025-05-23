@@ -56,27 +56,20 @@ export function createTeamsRouter(storage: IStorage): Router {
         });
       }
       
-      console.log(`[Teams] Creating new team for user ${req.user.id}`, req.body);
-      
       const parsed = insertTeamSchema.parse({ ...req.body, coachId: req.user.id });
-      console.log(`[Teams] Parsed team data:`, parsed);
       
       const team = await storage.createTeam(parsed, { currentUserId: req.user.id });
-      console.log(`[Teams] Team created with ID ${team.id}`);
 
       // Create team member entry for the creator as owner
-      console.log(`[Teams] Creating team member entry for user ${req.user.id} as Owner`);
       const teamMember = await storage.createTeamMember({
         teamId: team.id,
         userId: req.user.id,
         role: TEAM_ROLES.OWNER,
         isOwner: true
       }, { currentUserId: req.user.id });
-      console.log(`[Teams] Team member entry created with ID ${teamMember.id}`);
 
       res.status(201).json(team);
     } catch (err) {
-      console.error('[Teams] Error creating team:', err);
       handleValidationError(err, res);
     }
   });
@@ -131,7 +124,6 @@ export function createTeamsRouter(storage: IStorage): Router {
       // Filter out any null results (in case a team was deleted)
       res.json(teams.filter(Boolean));
     } catch (err) {
-      console.error('Error fetching teams:', err);
       res.status(500).json({
         error: 'Server Error',
         message: 'An error occurred while fetching teams'
@@ -168,7 +160,6 @@ export function createTeamsRouter(storage: IStorage): Router {
 
       res.json(team);
     } catch (error) {
-      console.error('Error fetching team:', error);
       res.status(500).json({ error: 'Failed to fetch team' });
     }
   });
@@ -186,66 +177,22 @@ export function createTeamsRouter(storage: IStorage): Router {
         });
       }
 
-      const userInfo = `User ${req.user.id} (${req.user.username})`;
-      console.log(`[Teams] PUT team ${req.params.teamId} - ${userInfo} updating team settings`);
-      
       const teamId = parseInt(req.params.teamId, 10);
       if (isNaN(teamId)) {
-        console.log(`[Teams] PUT team ${req.params.teamId} - Invalid team ID`);
         return res.status(400).json({ error: 'Invalid team ID' });
       }
 
-      // Inspect the raw request body
-      console.log('[Teams] PUT - Raw request body:', JSON.stringify(req.body, null, 2));
-
-      const { name, description, seasonStartDate, seasonEndDate, feeType, teamFee } = req.body;
-      
-      // Add detailed debug logging for feeType
-      console.log(`[Teams] PUT team ${teamId} - feeType received:`, {
-        feeType,
-        typeOfFeeType: typeof feeType,
-        rawBody: req.body
-      });
-      
-      console.log(`[Teams] PUT team ${teamId} - Update data:`, { name, description, seasonStartDate, seasonEndDate, feeType, teamFee });
-      
-      // Process fields that need special handling
-      
-      // Fix for numeric field validation: convert empty string to null
-      const processedTeamFee = teamFee === '' ? null : teamFee;
-      
-      // Process dates - ensure they're in YYYY-MM-DD format or null
-      let processedStartDate = seasonStartDate;
-      let processedEndDate = seasonEndDate;
-      
-      if (seasonStartDate && !isValidDateFormat(seasonStartDate)) {
-        console.warn(`[Teams] Invalid start date format, setting to null: ${seasonStartDate}`);
-        processedStartDate = null;
-      }
-      
-      if (seasonEndDate && !isValidDateFormat(seasonEndDate)) {
-        console.warn(`[Teams] Invalid end date format, setting to null: ${seasonEndDate}`);
-        processedEndDate = null;
-      }
-      
-      // Get current team to compare changes
-      const currentTeam = await storage.getTeam(teamId);
-      console.log(`[Teams] Current team data:`, JSON.stringify(currentTeam, null, 2));
-
       const updatedTeam = await storage.updateTeam(teamId, {
-        name,
-        description,
-        seasonStartDate: processedStartDate,
-        seasonEndDate: processedEndDate,
-        feeType: feeType || 'fixed',
-        teamFee: processedTeamFee
+        name: req.body.name,
+        description: req.body.description,
+        seasonStartDate: req.body.seasonStartDate,
+        seasonEndDate: req.body.seasonEndDate,
+        feeType: req.body.feeType || 'fixed',
+        teamFee: req.body.teamFee === '' ? null : req.body.teamFee
       }, { currentUserId: req.user.id });
 
-      console.log(`[Teams] PUT team ${teamId} - Team updated successfully, feeType:`, updatedTeam.feeType);
-      console.log(`[Teams] Updated team data:`, JSON.stringify(updatedTeam, null, 2));
       res.json(updatedTeam);
     } catch (error) {
-      console.error(`[Teams] Error updating team ${req.params.teamId} settings:`, error);
       res.status(500).json({ error: 'Failed to update team settings' });
     }
   });

@@ -350,13 +350,6 @@ export const TeamSettings = ({ teamId }: TeamSettingsProps) => {
       // Process the data to handle null values
       const processedData = processFormData(data);
 
-      // Add debug logging
-      console.log('[TeamSettings] Submitting data with feeType:', {
-        originalFeeType: data.feeType,
-        processedFeeType: processedData.feeType,
-        fullData: processedData
-      });
-
       // Submit the processed data
       updateTeamMutation.mutate(processedData);
     } catch (err) {

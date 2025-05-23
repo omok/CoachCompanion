@@ -212,7 +212,6 @@ export function PlayerList({ teamId, showEditControls = false }: PlayerListProps
 
   // Function to handle opening the edit dialog with player data
   const handleEditPlayer = (player: Player) => {
-    console.log("Editing player:", player);
     setCurrentPlayer(player);
     setUpdateError(null);
     editForm.reset({

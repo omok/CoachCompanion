@@ -262,12 +262,6 @@ export function PlayerDetails({
             </TabsTrigger>
           )}
           {(() => {
-            console.log("Prepaid tab condition:", {
-              hasPaymentPermission,
-              teamFeeType: team?.feeType,
-              showPrepaidTab: hasPaymentPermission && team?.feeType === "prepaid"
-            });
-
             // Force show the prepaid tab for testing
             return (
               <TabsTrigger value="prepaid" className="text-xs sm:text-sm px-1 sm:px-3 py-2 sm:py-2 h-auto flex items-center justify-center">
@@ -275,14 +269,6 @@ export function PlayerDetails({
                 <span className="inline">Prepaid</span>
               </TabsTrigger>
             );
-
-            // Original condition
-            // return hasPaymentPermission && team?.feeType === "prepaid" && (
-            //   <TabsTrigger value="prepaid" className="text-xs sm:text-sm px-1 sm:px-3 py-2 sm:py-2 h-auto flex items-center justify-center">
-            //     <Ticket className="h-4 w-4 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
-            //     <span className="inline">Prepaid</span>
-            //   </TabsTrigger>
-            // );
           })()}
         </TabsList>
 
@@ -499,12 +485,6 @@ export function PlayerDetails({
 
         {/* Prepaid Tab (Only for users with payment permissions and prepaid fee type) */}
         {(() => {
-          console.log("Prepaid tab content condition:", {
-            hasPaymentPermission,
-            teamFeeType: team?.feeType,
-            showPrepaidTab: hasPaymentPermission && team?.feeType === "prepaid"
-          });
-
           // Force show the prepaid tab for testing
           return (
             <TabsContent value="prepaid">
@@ -514,16 +494,6 @@ export function PlayerDetails({
               />
             </TabsContent>
           );
-
-          // Original condition
-          // return hasPaymentPermission && team?.feeType === "prepaid" && (
-          //   <TabsContent value="prepaid">
-          //     <PlayerPrepaidHistory
-          //       teamId={teamId}
-          //       playerId={playerId}
-          //     />
-          //   </TabsContent>
-          // );
         })()}
       </Tabs>
     </div>

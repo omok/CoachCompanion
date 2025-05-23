@@ -107,10 +107,6 @@ export function PrepaidSessionTracker({ teamId }: PrepaidSessionTrackerProps) {
       let currentBalanceData: any = null;
 
       try {
-        console.log("Adding prepaid sessions for player", playerId, "in team", teamId);
-        console.log("Session count:", sessionCount);
-        console.log("Notes:", notes);
-
         // First, get the current session balance
         const currentBalanceResponse = await fetch(`/api/teams/${teamId}/sessions/${playerId}`);
         if (!currentBalanceResponse.ok) {
@@ -144,13 +140,10 @@ export function PrepaidSessionTracker({ teamId }: PrepaidSessionTrackerProps) {
 
         return { result: await response.json(), currentBalance: currentBalanceData };
       } catch (error) {
-        console.error("Error in addSessionsMutation:", error);
         throw error;
       }
     },
     onSuccess: ({ result, currentBalance }) => {
-      console.log("Mutation succeeded with result:", result);
-
       // Update the cache with the new session balance
       queryClient.setQueryData([`/api/teams/${teamId}/sessions`], (oldData: any) => {
         if (!oldData) return [result];
@@ -187,8 +180,6 @@ export function PrepaidSessionTracker({ teamId }: PrepaidSessionTrackerProps) {
       });
     },
     onError: (error) => {
-      console.error("Error adding sessions:", error);
-
       // Show a more user-friendly error message
       toast({
         title: "Error",
@@ -200,8 +191,6 @@ export function PrepaidSessionTracker({ teamId }: PrepaidSessionTrackerProps) {
 
   // Handle form submission
   const onSubmit = (data: FormData) => {
-    console.log("Form submitted with data:", data);
-
     // Validate the data
     if (!data.playerId) {
       toast({
@@ -232,13 +221,13 @@ export function PrepaidSessionTracker({ teamId }: PrepaidSessionTrackerProps) {
   if (isLoadingPlayers || isLoadingSessionBalances) {
     return (
       <div className="flex justify-center">
-        <Loader2 className="h-6 w-6 animate-spin" />
+        <Loader2 className="h-6 w-6 animate-spin" role="status" />
       </div>
     );
   }
 
   // Format session balances for display
-  const sessionBalancesWithNames = sessionBalances
+  const sessionBalancesWithNames = (sessionBalances ?? [])
     .map((balance: SessionBalance) => {
       const player = players?.find((p) => p.id === balance.playerId);
 

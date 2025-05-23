@@ -84,15 +84,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Scan for duplicate routes after all routes are registered
   registry.scanExpress(app);
 
-  // Log all registered routes in development
-  if (process.env.NODE_ENV === 'development') {
-    console.log('\nRegistered Routes:');
-    registry.getRoutes().sort().forEach(route => {
-      console.log(`  ${route}`);
-    });
-    console.log();
-  }
-
   // Create and return HTTP server
   return createServer(app);
 }

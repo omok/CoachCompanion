@@ -23,9 +23,6 @@ const DB_USER = 'your_db_user';  // Replace with your DB username
 const DB_NAME = 'your_db_name';  // Replace with your DB name
 const DB_HOST = 'your_db_host';  // Replace with your DB host
 
-console.log('Starting fix for team ownership...');
-console.log('You will need to enter your database password when prompted');
-
 // Execute the SQL file (you'll be prompted for a password)
 const command = `psql -U ${DB_USER} -h ${DB_HOST} -d ${DB_NAME} -f ${sqlFilePath}`;
 
@@ -34,15 +31,11 @@ exec(command, (error, stdout, stderr) => {
   fs.unlinkSync(sqlFilePath);
   
   if (error) {
-    console.error(`Error executing SQL: ${error.message}`);
     return;
   }
   
   if (stderr) {
-    console.log(`SQL execution warnings: ${stderr}`);
   }
   
-  console.log('SQL execution output:');
-  console.log(stdout);
   console.log('Team ownership fix complete!');
 }); 

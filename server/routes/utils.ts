@@ -52,7 +52,7 @@ export const hasTeamAccess = async (
   userId: number,
   teamId: number,
   userRole: string,
-  storage: any
+  storage: IStorage
 ): Promise<boolean> => {
   if (userRole === "Coach") {
     const team = await storage.getTeamById(teamId);
@@ -89,13 +89,14 @@ export async function getUserTeamIds(
       teamIds = teams.map(team => team.id);
     } else if (userRole === "Normal") {
       const children = await storage.getPlayersByParentId(userId);
-      const childTeamIds = children.map(child => child.teamId);
+      const childTeamIds = children.map(child => child.teamId); // Ensure child.teamId is correctly typed if Player type is used
       teamIds = [...new Set(childTeamIds)];
     }
     
     return teamIds;
   } catch (error) {
-    Logger.error('Error getting user team IDs', { userId, userRole, error });
+    // Assuming Logger is correctly imported and initialized elsewhere
+    Logger.error('Error getting user team IDs', { userId, userRole, error }); 
     return [];
   }
 } 

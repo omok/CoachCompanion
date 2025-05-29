@@ -37,7 +37,10 @@ export function setupCsrf(app: Express) {
   });
 
   // Handle CSRF errors
-  app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  interface CsrfError extends Error {
+    code?: string;
+  }
+  app.use((err: CsrfError, req: Request, res: Response, next: NextFunction) => {
     if (err.code === 'CSRF_INVALID') {
       return res.status(403).json({
         error: 'CSRF token validation failed. Please refresh the page and try again.'

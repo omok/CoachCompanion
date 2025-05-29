@@ -23,7 +23,10 @@ import { USER_ROLES, TEAM_ROLES, type UserRole, type TeamRole } from '@shared/co
  */
 declare module 'express-session' {
   interface SessionData {
-    userId: number;
+    userId?: number;
+    passport?: {
+      user?: number;
+    };
   }
 }
 
@@ -38,11 +41,11 @@ function getUserId(req: Request): number | null {
   
   // Try getting from req.user if authenticated
   if (req.isAuthenticated() && req.user) {
-    return (req.user as any).id;
+    return req.user.id; // Removed 'as any'
   }
   
   // Try getting from passport session data
-  const passportSession = (req.session as any)?.passport;
+  const passportSession = req.session.passport; // Removed 'as any'
   if (passportSession && passportSession.user) {
     return passportSession.user;
   }

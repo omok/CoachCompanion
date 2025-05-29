@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { insertPracticeNoteSchema } from "@shared/schema";
+import { insertPracticeNoteSchema, InsertPracticeNote } from "@shared/schema";
 import { handleValidationError } from "./utils";
 import { IStorage } from "../storage";
 import { Logger } from "../logger";
@@ -43,7 +43,7 @@ export function createPracticeNotesRouter(storage: IStorage): Router {
    * @param teamId - The team ID to create notes for
    * @returns The created practice note with ID assigned
    */
-  router.post("/", requireTeamRolePermission(TEAM_PERMISSION_KEYS.ADD_PRACTICE_NOTE), async (req: Request, res: Response) => {
+  router.post("/", requireTeamRolePermission(TEAM_PERMISSION_KEYS.ADD_PRACTICE_NOTE), async (req: Request<TeamParams, any, InsertPracticeNote>, res: Response) => {
     try {
       if (!req.user) {
         return res.status(401).json({
@@ -73,11 +73,11 @@ export function createPracticeNotesRouter(storage: IStorage): Router {
       const parsed = insertPracticeNoteSchema.parse({
         ...req.body,
         teamId,
-        coachId: req.user.id,
+        coachId: req.user.id, // Now type-safe due to global augmentation
       });
       
       // Create the practice note
-      const practiceNote = await storage.createPracticeNote(parsed, { currentUserId: req.user.id });
+      const practiceNote = await storage.createPracticeNote(parsed, { currentUserId: req.user.id }); // Now type-safe
       res.status(201).json(practiceNote);
     } catch (err) {
       handleValidationError(err, res);

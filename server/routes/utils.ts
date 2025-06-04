@@ -2,6 +2,7 @@ import { Response } from "express";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { Player } from "@shared/schema";
+import { IStorage } from "../storage";
 
 /**
  * Error handler for validation errors

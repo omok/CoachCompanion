@@ -19,6 +19,10 @@ import {
   Loader2,
   Settings,
   Ticket,
+  BarChart3, // Added for Attendance Analytics
+  Mail, // Added for Automated Communication
+  BellCog, // Added for Communication Preferences
+  LineChart as LineChartIcon, // Renamed to avoid conflict if LineChart component is used here
 } from "lucide-react";
 import { CreateTeamDialog } from "@/components/create-team-dialog";
 import { USER_ROLES, type UserRole } from '@shared/constants';
@@ -26,6 +30,7 @@ import { userRoleHasPermission, USER_ROLE_PERMISSIONS } from '@shared/access-con
 import { usePermissions } from "@/hooks/usePermissions";
 import { useTeamMember, type TeamMembership } from "@/hooks/useTeamMember";
 import { UserProfileDialog } from "@/components/user-profile-dialog";
+import { Link } from "wouter";
 
 export default function Dashboard() {
   const { user, logoutMutation } = useAuth();
@@ -176,20 +181,67 @@ export default function Dashboard() {
                   Settings
                 </Button>
               )}
+              {/* Add Attendance Analytics Link */}
+              {/* TODO: Add a specific permission for Attendance Analytics */}
+              {canManageTeamSettings(selectedTeamId) && (
+                <Link href={`/attendance-analytics?teamId=${selectedTeamId}`}>
+                  <Button
+                    variant={"ghost"}
+                    className="w-full justify-start"
+                  >
+                    <BarChart3 className="h-4 w-4 mr-2" />
+                    Team Attendance Analytics
+                  </Button>
+                </Link>
+              )}
             </nav>
           </div>
         )}
 
-        {/* Logout */}
-        <div className="p-4">
-          <Button
-            variant="ghost"
-            className="w-full justify-start"
-            onClick={() => logoutMutation.mutate()}
-          >
-            <LogOut className="h-4 w-4 mr-2" />
-            Logout
-          </Button>
+        {/* Navigation for global features - not team-specific */}
+        {/* TODO: Add a permission check here - only admins/relevant roles should see this section */}
+        <div className="p-4 border-b">
+            <h2 className="text-sm font-medium mb-2">Organization Tools</h2>
+            <nav className="space-y-1">
+                <Link href="/attendance-analytics"> {/* This link might need a default/overview view if no teamId */}
+                    <Button variant="ghost" className="w-full justify-start">
+                        <BarChart3 className="h-4 w-4 mr-2" />
+                        Global Attendance Overview
+                    </Button>
+                </Link>
+                <Link href="/automated-communication">
+                    <Button variant="ghost" className="w-full justify-start">
+                        <Mail className="h-4 w-4 mr-2" />
+                        Automated Communication
+                    </Button>
+                </Link>
+                <Link href="/communication-analytics">
+                    <Button variant="ghost" className="w-full justify-start">
+                        <LineChartIcon className="h-4 w-4 mr-2" />
+                        Communication Analytics
+                    </Button>
+                </Link>
+            </nav>
+        </div>
+
+        {/* User specific settings & Logout */}
+        <div className="p-4 mt-auto border-t"> {/* mt-auto pushes this section to the bottom if sidebar has fixed height and flex-col */}
+          <nav className="space-y-1">
+            <Link href="/communication-preferences">
+                <Button variant="ghost" className="w-full justify-start text-sm">
+                    <BellCog className="h-4 w-4 mr-2" />
+                    Notification Settings
+                </Button>
+            </Link>
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-sm"
+              onClick={() => logoutMutation.mutate()}
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Logout
+            </Button>
+          </nav>
         </div>
       </div>
 

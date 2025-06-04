@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { Request } from "express";
 import type { ParamsDictionary } from "express-serve-static-core";
-import { insertPaymentSchema } from "@shared/schema";
+import { insertPaymentSchema, Payment } from "@shared/schema";
 import { handleValidationError } from "./utils";
 import { IStorage } from "../storage";
 import { Logger } from "../logger";
@@ -14,8 +14,11 @@ function isValidDateFormat(dateStr: string | null): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(dateStr);
 }
 
+// Define ClientPayment type
+type ClientPayment = Omit<Payment, 'date'> & { date: string };
+
 // Format dates in payment data to YYYY-MM-DD strings for client
-function formatPaymentDatesForClient(payments: any[]) {
+function formatPaymentDatesForClient(payments: Payment[]): ClientPayment[] {
   return payments.map(payment => {
     // If the date is already a string in YYYY-MM-DD format, return as is
     if (typeof payment.date === 'string' && isValidDateFormat(payment.date)) {

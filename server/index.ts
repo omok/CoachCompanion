@@ -58,9 +58,12 @@ app.use((req, res, next) => {
   const server = await registerRoutes(app);
 
   // Error handling middleware
+  interface HttpError extends Error {
+    code?: string;
+  }
   app.use(
     (
-      err: any,
+      err: HttpError,
       req: express.Request,
       res: express.Response,
       next: express.NextFunction,

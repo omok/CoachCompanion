@@ -42,7 +42,7 @@ export function PlayerPrepaidHistory({ teamId, playerId }: PlayerPrepaidHistoryP
 
   const formatDisplayDate = (dateString: string) => {
     try {
-      return format(parseISO(dateString), "MMM d, yyyy");
+      return format(parseISO(dateString), "MMM d, yyyy h:mm a");
     } catch (error) {
       console.error("Error formatting date:", error);
       return dateString;
@@ -166,7 +166,7 @@ export function PlayerPrepaidHistory({ teamId, playerId }: PlayerPrepaidHistoryP
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="text-xs sm:text-sm">Date</TableHead>
+                    <TableHead className="text-xs sm:text-sm">Date/Time</TableHead>
                     <TableHead className="text-xs sm:text-sm">Change</TableHead>
                     <TableHead className="text-xs sm:text-sm">Reason</TableHead>
                     <TableHead className="text-xs sm:text-sm">Notes</TableHead>

@@ -27,7 +27,7 @@ function formatDateForClient(date: Date | string | null): string | null {
   if (!date) return null;
   
   const dateObj = typeof date === 'string' ? new Date(date) : date;
-  return dateObj.toISOString().split('T')[0]; // YYYY-MM-DD
+  return dateObj.toISOString(); // Return full ISO string
 }
 
 // Format session balance for client
@@ -44,9 +44,16 @@ function formatSessionBalanceForClient(balance: any) {
 function formatSessionTransactionsForClient(transactions: any[]) {
   if (!transactions || !transactions.length) return [];
   
-  return transactions.map(transaction => ({
+  // Sort transactions by date in descending order
+  const sortedTransactions = transactions.sort((a, b) => {
+    const dateA = ensureDate(a.date).getTime();
+    const dateB = ensureDate(b.date).getTime();
+    return dateB - dateA;
+  });
+
+  return sortedTransactions.map(transaction => ({
     ...transaction,
-    date: formatDateForClient(transaction.date)
+    date: formatDateForClient(transaction.date) // This will now use the updated formatDateForClient
   }));
 }
 

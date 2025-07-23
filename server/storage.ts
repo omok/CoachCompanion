@@ -501,12 +501,13 @@ export class Storage implements IStorage {
           if (!sessionBalance) continue;
 
           if (!wasPresent && isNowPresent) {
-            // Subtract session (already implemented, but move here for clarity)
+            // Player is marked as present, so decrement their session balance
             if (sessionBalance.remainingSessions > 0) {
-              await this.updateSessionBalance(sessionBalance.id, {
+              const updatedBalance = {
                 usedSessions: sessionBalance.usedSessions + 1,
                 remainingSessions: sessionBalance.remainingSessions - 1
-              }, context);
+              };
+              await this.updateSessionBalance(sessionBalance.id, updatedBalance, context);
               await this.addSessionTransaction({
                 playerId,
                 teamId,
@@ -516,14 +517,15 @@ export class Storage implements IStorage {
                 notes: `Used 1 session for attendance on ${dateStr}`,
                 attendanceId: record.id
               }, context);
-              Logger.info(`Decremented session balance for player ${playerId}, remaining: ${sessionBalance.remainingSessions - 1}`);
+              Logger.info(`Decremented session balance for player ${playerId}, remaining: ${updatedBalance.remainingSessions}`);
             }
           } else if (wasPresent && !isNowPresent) {
-            // Restore session
-            await this.updateSessionBalance(sessionBalance.id, {
+            // Player is marked as not present, so restore their session balance
+            const updatedBalance = {
               usedSessions: Math.max(sessionBalance.usedSessions - 1, 0),
               remainingSessions: sessionBalance.remainingSessions + 1
-            }, context);
+            };
+            await this.updateSessionBalance(sessionBalance.id, updatedBalance, context);
             await this.addSessionTransaction({
               playerId,
               teamId,
@@ -533,7 +535,7 @@ export class Storage implements IStorage {
               notes: `Restored 1 session for attendance removal on ${dateStr}`,
               attendanceId: record.id
             }, context);
-            Logger.info(`Restored session balance for player ${playerId}, remaining: ${sessionBalance.remainingSessions + 1}`);
+            Logger.info(`Restored session balance for player ${playerId}, remaining: ${updatedBalance.remainingSessions}`);
           }
         }
 

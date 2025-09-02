@@ -78,12 +78,26 @@ describe('Session Routes', () => {
       expect(response.body[0].id).toBe(1);
       expect(response.body[1].id).toBe(2);
     });
-    
+
     it('should handle invalid team ID', async () => {
       const response = await request(app).get('/api/teams/invalid/sessions');
-      
+
       expect(response.status).toBe(400);
       expect(response.body.error).toBe('Invalid Request');
+    });
+
+    it('should return 401 if user is not authenticated', async () => {
+      const unauthApp = express();
+      unauthApp.use(express.json());
+      unauthApp.use('/api/teams/:teamId/sessions', createSessionsRouter(mockStorage));
+
+      const response = await request(unauthApp).get('/api/teams/1/sessions');
+
+      expect(response.status).toBe(401);
+      expect(response.body).toEqual({
+        error: 'Authentication Required',
+        message: 'You must be logged in to view session balances'
+      });
     });
   });
   

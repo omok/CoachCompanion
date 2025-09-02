@@ -202,7 +202,7 @@ Request:
 Response: Attendance[]
 ```
 
-### GET /api/teams/:teamId/attendance/players/:playerId
+### GET /api/teams/:teamId/attendance/player/:playerId
 Get attendance records for a specific player
 ```typescript
 Query Parameters:
